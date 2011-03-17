@@ -1,6 +1,6 @@
 // Copyright 2011 Mariano Iglesias <mgiglesias@gmail.com>
-#ifndef SRC_NODE_DB_CONNECTION_H_
-#define SRC_NODE_DB_CONNECTION_H_
+#ifndef CONNECTION_H_
+#define CONNECTION_H_
 
 #include <stdint.h>
 #include <string>
@@ -43,4 +43,4 @@ class Connection {
 };
 }
 
-#endif  // SRC_NODE_DB_CONNECTION_H_
+#endif  // CONNECTION_H_

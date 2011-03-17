@@ -1,6 +1,6 @@
 // Copyright 2011 Mariano Iglesias <mgiglesias@gmail.com>
-#ifndef SRC_NODE_DB_EXCEPTION_H_
-#define SRC_NODE_DB_EXCEPTION_H_
+#ifndef EXCEPTION_H_
+#define EXCEPTION_H_
 
 #include <exception>
 
@@ -14,4 +14,4 @@ class Exception : public std::exception {
 };
 }
 
-#endif  // SRC_NODE_DB_EXCEPTION_H_
+#endif  // EXCEPTION_H_

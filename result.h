@@ -1,6 +1,6 @@
 // Copyright 2011 Mariano Iglesias <mgiglesias@gmail.com>
-#ifndef SRC_NODE_DB_RESULT_H_
-#define SRC_NODE_DB_RESULT_H_
+#ifndef RESULT_H_
+#define RESULT_H_
 
 #include <stdint.h>
 #include <stdexcept>
@@ -39,4 +39,4 @@ class Result {
 };
 }
 
-#endif  // SRC_NODE_DB_RESULT_H_
+#endif  // RESULT_H_

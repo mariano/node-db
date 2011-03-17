@@ -1,6 +1,6 @@
 // Copyright 2011 Mariano Iglesias <mgiglesias@gmail.com>
-#ifndef SRC_NODE_DB_NODE_DEFS_H_
-#define SRC_NODE_DB_NODE_DEFS_H_
+#ifndef NODE_DEFS_H_
+#define NODE_DEFS_H_
 
 #include <node.h>
 
@@ -153,4 +153,4 @@ do {                                                                      \
         THROW_EXCEPTION("Option \"" #KEY "\" must be a valid function") \
     }
 
-#endif  // SRC_NODE_DB_NODE_DEFS_H_
+#endif  // NODE_DEFS_H_

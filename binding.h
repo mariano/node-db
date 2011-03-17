@@ -1,6 +1,6 @@
 // Copyright 2011 Mariano Iglesias <mgiglesias@gmail.com>
-#ifndef SRC_NODE_DB_BINDING_H_
-#define SRC_NODE_DB_BINDING_H_
+#ifndef BINDING_H_
+#define BINDING_H_
 
 #include <node.h>
 #include <node_events.h>
@@ -42,4 +42,4 @@ class Binding : public node::EventEmitter {
 };
 }
 
-#endif  // SRC_NODE_DB_BINDING_H_
+#endif  // BINDING_H_

@@ -1,6 +1,6 @@
 // Copyright 2011 Mariano Iglesias <mgiglesias@gmail.com>
-#ifndef SRC_NODE_DB_QUERY_H_
-#define SRC_NODE_DB_QUERY_H_
+#ifndef QUERY_H_
+#define QUERY_H_
 
 #include <stdlib.h>
 #include <node.h>
@@ -67,4 +67,4 @@ class Query : public node::EventEmitter {
 };
 }
 
-#endif  // SRC_NODE_DB_QUERY_H_
+#endif  // QUERY_H_
