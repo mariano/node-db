@@ -262,6 +262,9 @@ v8::Handle<v8::Value> node_db::Binding::Query(const v8::Arguments& args) {
     assert(binding);
 
     v8::Persistent<v8::Object> query = binding->createQuery();
+    if (query.IsEmpty()) {
+        THROW_EXCEPTION("Could not create query");
+    }
 
     node_db::Query* queryInstance = node::ObjectWrap::Unwrap<node_db::Query>(query);
     queryInstance->setConnection(binding->connection);

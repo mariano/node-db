@@ -20,7 +20,7 @@ void node_db::Query::Init(v8::Handle<v8::Object> target, v8::Persistent<v8::Func
 }
 
 node_db::Query::Query(): node::EventEmitter(),
-    connection(NULL), cast(true), cbStart(NULL), cbSuccess(NULL), cbFinish(NULL) {
+    connection(NULL), async(true), cast(true), cbStart(NULL), cbSuccess(NULL), cbFinish(NULL) {
 }
 
 node_db::Query::~Query() {
@@ -418,9 +418,14 @@ v8::Handle<v8::Value> node_db::Query::Execute(const v8::Arguments& args) {
     request->rows = NULL;
     request->error = NULL;
 
-    request->query->Ref();
-    eio_custom(eioExecute, EIO_PRI_DEFAULT, eioExecuteFinished, request);
-    ev_ref(EV_DEFAULT_UC);
+    if (query->async) {
+        request->query->Ref();
+        eio_custom(eioExecute, EIO_PRI_DEFAULT, eioExecuteFinished, request);
+        ev_ref(EV_DEFAULT_UC);
+    } else {
+        request->query->execute(request);
+        request->query->executeFinished(request);
+    }
 
     return scope.Close(v8::Undefined());
 }
@@ -428,13 +433,28 @@ v8::Handle<v8::Value> node_db::Query::Execute(const v8::Arguments& args) {
 int node_db::Query::eioExecute(eio_req* eioRequest) {
     execute_request_t *request = static_cast<execute_request_t *>(eioRequest->data);
     assert(request);
-    assert(request->query->connection);
 
+    request->query->execute(request);
+
+    return 0;
+}
+
+int node_db::Query::eioExecuteFinished(eio_req* eioRequest) {
+    v8::HandleScope scope;
+
+    execute_request_t *request = static_cast<execute_request_t *>(eioRequest->data);
+    assert(request);
+
+    request->query->executeFinished(request);
+
+    return 0;
+}
+
+void node_db::Query::execute(execute_request_t* request) {
     try {
-        request->result = request->query->connection->query(request->query->sql.str());
+        request->result = this->connection->query(this->sql.str());
         if (request->result != NULL) {
             request->rows = new std::vector<std::string**>();
-
             if (request->rows == NULL) {
                 throw node_db::Exception("Could not create buffer for rows");
             }
@@ -464,16 +484,9 @@ int node_db::Query::eioExecute(eio_req* eioRequest) {
         }
         request->error = exception.what();
     }
-
-    return 0;
 }
 
-int node_db::Query::eioExecuteFinished(eio_req* eioRequest) {
-    v8::HandleScope scope;
-
-    execute_request_t *request = static_cast<execute_request_t *>(eioRequest->data);
-    assert(request);
-
+void node_db::Query::executeFinished(execute_request_t* request) {
     uint16_t columnCount = (request->result != NULL ? request->result->columnCount() : 0);
     if (request->error == NULL && request->result != NULL) {
         assert(request->rows);
@@ -483,14 +496,14 @@ int node_db::Query::eioExecuteFinished(eio_req* eioRequest) {
         uint64_t index = 0;
         for (std::vector<std::string**>::iterator iterator = request->rows->begin(), end = request->rows->end(); iterator != end; ++iterator, index++) {
             std::string** currentRow = *iterator;
-            v8::Local<v8::Object> row = request->query->row(request->result, currentRow, request->query->cast);
+            v8::Local<v8::Object> row = this->row(request->result, currentRow, this->cast);
             v8::Local<v8::Value> eachArgv[3];
 
             eachArgv[0] = row;
             eachArgv[1] = v8::Number::New(index);
             eachArgv[2] = v8::Local<v8::Value>::New(iterator == end ? v8::True() : v8::False());
 
-            request->query->Emit(syEach, 3, eachArgv);
+            this->Emit(syEach, 3, eachArgv);
 
             rows->Set(index, row);
         }
@@ -511,11 +524,11 @@ int node_db::Query::eioExecuteFinished(eio_req* eioRequest) {
         argv[0] = rows;
         argv[1] = columns;
 
-        request->query->Emit(sySuccess, 2, argv);
+        this->Emit(sySuccess, 2, argv);
 
-        if (request->query->cbSuccess != NULL && !request->query->cbSuccess->IsEmpty()) {
+        if (this->cbSuccess != NULL && !this->cbSuccess->IsEmpty()) {
             v8::TryCatch tryCatch;
-            (*(request->query->cbSuccess))->Call(v8::Context::GetCurrent()->Global(), 2, argv);
+            (*(this->cbSuccess))->Call(v8::Context::GetCurrent()->Global(), 2, argv);
             if (tryCatch.HasCaught()) {
                 node::FatalException(tryCatch);
             }
@@ -524,18 +537,20 @@ int node_db::Query::eioExecuteFinished(eio_req* eioRequest) {
         v8::Local<v8::Value> argv[1];
         argv[0] = v8::String::New(request->error != NULL ? request->error : "(unknown error)");
 
-        request->query->Emit(syError, 1, argv);
+        this->Emit(syError, 1, argv);
     }
 
-    ev_unref(EV_DEFAULT_UC);
-    request->query->Unref();
-
-    if (request->query->cbFinish != NULL && !request->query->cbFinish->IsEmpty()) {
+    if (this->cbFinish != NULL && !this->cbFinish->IsEmpty()) {
         v8::TryCatch tryCatch;
-        (*(request->query->cbFinish))->Call(v8::Context::GetCurrent()->Global(), 0, NULL);
+        (*(this->cbFinish))->Call(v8::Context::GetCurrent()->Global(), 0, NULL);
         if (tryCatch.HasCaught()) {
             node::FatalException(tryCatch);
         }
+    }
+
+    if (this->async) {
+        ev_unref(EV_DEFAULT_UC);
+        this->Unref();
     }
 
     if (request->result != NULL) {
@@ -558,8 +573,6 @@ int node_db::Query::eioExecuteFinished(eio_req* eioRequest) {
     }
 
     delete request;
-
-    return 0;
 }
 
 v8::Handle<v8::Value> node_db::Query::set(const v8::Arguments& args) {
@@ -637,12 +650,17 @@ v8::Handle<v8::Value> node_db::Query::set(const v8::Arguments& args) {
     if (optionsIndex >= 0) {
         v8::Local<v8::Object> options = args[optionsIndex]->ToObject();
 
+        ARG_CHECK_OBJECT_ATTR_OPTIONAL_BOOL(options, async);
         ARG_CHECK_OBJECT_ATTR_OPTIONAL_BOOL(options, cast);
         ARG_CHECK_OBJECT_ATTR_OPTIONAL_FUNCTION(options, start);
         ARG_CHECK_OBJECT_ATTR_OPTIONAL_FUNCTION(options, finish);
         ARG_CHECK_OBJECT_ATTR_OPTIONAL_FUNCTION(options, success);
         ARG_CHECK_OBJECT_ATTR_OPTIONAL_FUNCTION(options, error);
         ARG_CHECK_OBJECT_ATTR_OPTIONAL_FUNCTION(options, each);
+
+        if (options->Has(async_key)) {
+            this->async = options->Get(async_key)->IsTrue();
+        }
 
         if (options->Has(cast_key)) {
             this->cast = options->Get(cast_key)->IsTrue();

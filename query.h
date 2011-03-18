@@ -33,6 +33,7 @@ class Query : public node::EventEmitter {
         };
         Connection* connection;
         std::ostringstream sql;
+        bool async;
         bool cast;
         v8::Persistent<v8::Array> values;
         v8::Persistent<v8::Function>* cbStart;
@@ -53,6 +54,8 @@ class Query : public node::EventEmitter {
         static v8::Handle<v8::Value> Execute(const v8::Arguments& args);
         static int eioExecute(eio_req* eioRequest);
         static int eioExecuteFinished(eio_req* eioRequest);
+        void execute(execute_request_t* request);
+        void executeFinished(execute_request_t* request);
         std::string selectField(v8::Local<v8::Value> value) const throw(Exception&);
         v8::Local<v8::Object> row(Result* result, std::string** currentRow, bool cast) const;
         std::string parseQuery(const std::string& query, v8::Array* values) const throw(Exception&);
