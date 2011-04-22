@@ -20,7 +20,7 @@ void node_db::Query::Init(v8::Handle<v8::Object> target, v8::Persistent<v8::Func
 }
 
 node_db::Query::Query(): node::EventEmitter(),
-    connection(NULL), async(true), cast(true), cbStart(NULL), cbSuccess(NULL), cbFinish(NULL) {
+    connection(NULL), async(true), cast(true), whereAdded(false), cbStart(NULL), cbSuccess(NULL), cbFinish(NULL) {
 }
 
 node_db::Query::~Query() {
@@ -318,7 +318,12 @@ v8::Handle<v8::Value> node_db::Query::Where(const v8::Arguments& args) {
         THROW_EXCEPTION(exception.what())
     }
 
-    query->sql << " WHERE ";
+    if (query->whereAdded) {
+        query->sql << " AND ";
+    } else {
+        query->whereAdded = true;
+        query->sql << " WHERE ";
+    }
     query->sql << currentConditions;
 
     return scope.Close(args.This());

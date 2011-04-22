@@ -35,6 +35,7 @@ class Query : public node::EventEmitter {
         std::ostringstream sql;
         bool async;
         bool cast;
+        bool whereAdded;
         v8::Persistent<v8::Array> values;
         v8::Persistent<v8::Function>* cbStart;
         v8::Persistent<v8::Function>* cbSuccess;
