@@ -498,7 +498,7 @@ void node_db::Query::executeFinished(execute_request_t* request) {
     if (request->error == NULL && request->result != NULL) {
         assert(request->rows);
 
-        v8::Local<v8::Array> rows = v8::Array::New();
+        v8::Local<v8::Array> rows = v8::Array::New(request->rows->size());
 
         uint64_t index = 0;
         for (std::vector<std::string**>::iterator iterator = request->rows->begin(), end = request->rows->end(); iterator != end; ++iterator, index++) {
