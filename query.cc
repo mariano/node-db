@@ -4,6 +4,8 @@
 v8::Persistent<v8::String> node_db::Query::sySuccess;
 v8::Persistent<v8::String> node_db::Query::syError;
 v8::Persistent<v8::String> node_db::Query::syEach;
+bool node_db::Query::gmtDeltaLoaded = false;
+int node_db::Query::gmtDelta;
 
 void node_db::Query::Init(v8::Handle<v8::Object> target, v8::Persistent<v8::FunctionTemplate> constructorTemplate) {
     NODE_ADD_PROTOTYPE_METHOD(constructorTemplate, "select", Select);
@@ -20,7 +22,7 @@ void node_db::Query::Init(v8::Handle<v8::Object> target, v8::Persistent<v8::Func
 }
 
 node_db::Query::Query(): node::EventEmitter(),
-    connection(NULL), async(true), cast(true), whereAdded(false), cbStart(NULL), cbSuccess(NULL), cbFinish(NULL) {
+    connection(NULL), async(true), cast(true), bufferText(false), whereAdded(false), cbStart(NULL), cbSuccess(NULL), cbFinish(NULL) {
 }
 
 node_db::Query::~Query() {
@@ -501,7 +503,7 @@ void node_db::Query::executeFinished(execute_request_t* request) {
         uint64_t index = 0;
         for (std::vector<std::string**>::iterator iterator = request->rows->begin(), end = request->rows->end(); iterator != end; ++iterator, index++) {
             std::string** currentRow = *iterator;
-            v8::Local<v8::Object> row = this->row(request->result, currentRow, this->cast);
+            v8::Local<v8::Object> row = this->row(request->result, currentRow);
             v8::Local<v8::Value> eachArgv[3];
 
             eachArgv[0] = row;
@@ -657,6 +659,7 @@ v8::Handle<v8::Value> node_db::Query::set(const v8::Arguments& args) {
 
         ARG_CHECK_OBJECT_ATTR_OPTIONAL_BOOL(options, async);
         ARG_CHECK_OBJECT_ATTR_OPTIONAL_BOOL(options, cast);
+        ARG_CHECK_OBJECT_ATTR_OPTIONAL_BOOL(options, bufferText);
         ARG_CHECK_OBJECT_ATTR_OPTIONAL_FUNCTION(options, start);
         ARG_CHECK_OBJECT_ATTR_OPTIONAL_FUNCTION(options, finish);
         ARG_CHECK_OBJECT_ATTR_OPTIONAL_FUNCTION(options, success);
@@ -669,6 +672,10 @@ v8::Handle<v8::Value> node_db::Query::set(const v8::Arguments& args) {
 
         if (options->Has(cast_key)) {
             this->cast = options->Get(cast_key)->IsTrue();
+        }
+
+        if (options->Has(bufferText_key)) {
+            this->bufferText = options->Get(bufferText_key)->IsTrue();
         }
 
         if (options->Has(start_key)) {
@@ -698,7 +705,7 @@ v8::Handle<v8::Value> node_db::Query::set(const v8::Arguments& args) {
     return v8::Handle<v8::Value>();
 }
 
-v8::Local<v8::Object> node_db::Query::row(node_db::Result* result, std::string** currentRow, bool cast) const {
+v8::Local<v8::Object> node_db::Query::row(node_db::Result* result, std::string** currentRow) const {
     v8::Local<v8::Object> row = v8::Object::New();
 
     for (uint16_t j = 0, limitj = result->columnCount(); j < limitj; j++) {
@@ -707,8 +714,9 @@ v8::Local<v8::Object> node_db::Query::row(node_db::Result* result, std::string**
 
         if (currentRow[j] != NULL) {
             const char* currentValue = currentRow[j]->c_str();
-            if (cast) {
-                switch (currentColumn->getType()) {
+            if (this->cast) {
+                node_db::Result::Column::type_t columnType = currentColumn->getType();
+                switch (columnType) {
                     case node_db::Result::Column::BOOL:
                         value = v8::Local<v8::Value>::New(currentRow[j]->empty() || currentRow[j]->compare("0") != 0 ? v8::True() : v8::False());
                         break;
@@ -718,25 +726,64 @@ v8::Local<v8::Object> node_db::Query::row(node_db::Result* result, std::string**
                     case node_db::Result::Column::NUMBER:
                         value = v8::Number::New(::atof(currentValue));
                         break;
-                    case node_db::Result::Column::DATE:
-                        try {
-                            value = v8::Date::New(this->toDate(*currentRow[j], false));
-                        } catch(const node_db::Exception&) {
-                            value = v8::String::New(currentValue);
-                        }
-                        break;
                     case node_db::Result::Column::TIME:
-                        value = v8::Date::New(this->toTime(*currentRow[j]));
+                        {
+                            int hour, min, sec;
+                            sscanf(currentRow[j]->c_str(), "%d:%d:%d", &hour, &min, &sec);
+                            value = v8::Date::New(static_cast<uint64_t>((hour*60*60 + min*60 + sec) * 1000));
+                        }
                         break;
+                    case node_db::Result::Column::DATE:
                     case node_db::Result::Column::DATETIME:
+                        // Code largely inspired from https://github.com/Sannis/node-mysql-libmysqlclient
                         try {
-                            value = v8::Date::New(this->toDate(*currentRow[j], true));
+                            int day = 0, month = 0, year = 0, hour = 0, min = 0, sec = 0;
+                            time_t rawtime;
+                            struct tm timeinfo;
+
+                            if (columnType == node_db::Result::Column::DATETIME) {
+                                sscanf(currentRow[j]->c_str(), "%d-%d-%d %d:%d:%d", &year, &month, &day, &hour, &min, &sec);
+                            } else {
+                                sscanf(currentRow[j]->c_str(), "%d-%d-%d", &year, &month, &day);
+                            }
+
+                            time(&rawtime);
+                            if (!localtime_r(&rawtime, &timeinfo)) {
+                                throw node_db::Exception("Can't get local time");
+                            }
+
+                            if (!Query::gmtDeltaLoaded) {
+                                int localHour, gmtHour, localMin, gmtMin;
+
+                                localHour = timeinfo.tm_hour - (timeinfo.tm_isdst > 0 ? 1 : 0);
+                                localMin = timeinfo.tm_min;
+
+                                if (!gmtime_r(&rawtime, &timeinfo)) {
+                                    throw node_db::Exception("Can't get GMT time");
+                                }
+                                gmtHour = timeinfo.tm_hour;
+                                gmtMin = timeinfo.tm_min;
+
+                                Query::gmtDelta = ((localHour - gmtHour) * 60 + (localMin - gmtMin)) * 60;
+                                if (Query::gmtDelta <= -(12 * 60 * 60)) {
+                                    Query::gmtDelta += 24 * 60 * 60;
+                                } else if (Query::gmtDelta > (12 * 60 * 60)) {
+                                    Query::gmtDelta -= 24 * 60 * 60;
+                                }
+                                Query::gmtDeltaLoaded = true;
+                            }
+
+                            timeinfo.tm_year = year - 1900;
+                            timeinfo.tm_mon = month - 1;
+                            timeinfo.tm_mday = day;
+                            timeinfo.tm_hour = hour;
+                            timeinfo.tm_min = min;
+                            timeinfo.tm_sec = sec;
+
+                            value = v8::Date::New(static_cast<uint64_t>((mktime(&timeinfo) + Query::gmtDelta) * 1000));
                         } catch(const node_db::Exception&) {
                             value = v8::String::New(currentValue);
                         }
-                        break;
-                    case node_db::Result::Column::TEXT:
-                        value = v8::Local<v8::Value>::New(node::Buffer::New(v8::String::New(currentValue, currentRow[j]->length())));
                         break;
                     case node_db::Result::Column::SET:
                         {
@@ -750,6 +797,13 @@ v8::Local<v8::Object> node_db::Query::row(node_db::Result* result, std::string**
                                 }
                             }
                             value = values;
+                        }
+                        break;
+                    case node_db::Result::Column::TEXT:
+                        if (this->bufferText) {
+                            value = v8::Local<v8::Value>::New(node::Buffer::New(v8::String::New(currentValue, currentRow[j]->length())));
+                        } else {
+                            value = v8::String::New(currentValue);
                         }
                         break;
                     default:
@@ -850,36 +904,6 @@ std::string node_db::Query::value(v8::Local<v8::Value> value, bool inArray, bool
     return currentStream.str();
 }
 
-uint64_t node_db::Query::toDate(const std::string& value, bool hasTime) const throw(node_db::Exception&) {
-    int day, month, year, hour, min, sec;
-    char sep;
-    std::istringstream stream(value, std::istringstream::in);
-
-    if (hasTime) {
-        stream >> year >> sep >> month >> sep >> day >> hour >> sep >> min >> sep >> sec;
-    } else {
-        stream >> year >> sep >> month >> sep >> day;
-        hour = min = sec = 0;
-    }
-
-    time_t rawtime;
-    struct tm timeinfo;
-
-    time(&rawtime);
-    if (!localtime_r(&rawtime, &timeinfo)) {
-        throw node_db::Exception("Can't get local time");
-    }
-
-    timeinfo.tm_year = year - 1900;
-    timeinfo.tm_mon = month - 1;
-    timeinfo.tm_mday = day;
-    timeinfo.tm_hour = hour;
-    timeinfo.tm_min = min;
-    timeinfo.tm_sec = sec;
-
-    return static_cast<uint64_t>((mktime(&timeinfo) + this->gmtDelta()) * 1000);
-}
-
 std::string node_db::Query::fromDate(const uint64_t timeStamp) const throw(node_db::Exception&) {
     char* buffer = new char[20];
     if (buffer == NULL) {
@@ -899,55 +923,5 @@ std::string node_db::Query::fromDate(const uint64_t timeStamp) const throw(node_
     delete [] buffer;
 
     return date;
-}
-
-int node_db::Query::gmtDelta() const throw(node_db::Exception&) {
-    int localHour, gmtHour, localMin, gmtMin;
-    time_t rawtime;
-    struct tm timeinfo;
-
-    time(&rawtime);
-    if (!localtime_r(&rawtime, &timeinfo)) {
-        throw node_db::Exception("Can't get local time");
-    }
-    localHour = timeinfo.tm_hour - (timeinfo.tm_isdst > 0 ? 1 : 0);
-    localMin = timeinfo.tm_min;
-
-    if (!gmtime_r(&rawtime, &timeinfo)) {
-        throw node_db::Exception("Can't get GMT time");
-    }
-    gmtHour = timeinfo.tm_hour;
-    gmtMin = timeinfo.tm_min;
-
-    int gmtDelta = ((localHour - gmtHour) * 60 + (localMin - gmtMin)) * 60;
-    if (gmtDelta <= -(12 * 60 * 60)) {
-        gmtDelta += 24 * 60 * 60;
-    } else if (gmtDelta > (12 * 60 * 60)) {
-        gmtDelta -= 24 * 60 * 60;
-    }
-
-    return gmtDelta;
-}
-
-uint64_t node_db::Query::toTime(const std::string& value) const {
-    int hour, min, sec;
-    char sep;
-    std::istringstream stream(value, std::istringstream::in);
-
-    stream >> hour >> sep >> min >> sep >> sec;
-
-    time_t rawtime;
-    struct tm timeinfo;
-
-    time(&rawtime);
-    if (!localtime_r(&rawtime, &timeinfo)) {
-        throw node_db::Exception("Can't get local time");
-    }
-
-    timeinfo.tm_hour = hour;
-    timeinfo.tm_min = min;
-    timeinfo.tm_sec = sec;
-
-    return static_cast<uint64_t>((mktime(&timeinfo) + this->gmtDelta()) * 1000);
 }
 

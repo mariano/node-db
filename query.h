@@ -8,6 +8,7 @@
 #include <node_events.h>
 #include <algorithm>
 #include <cctype>
+#include <cstring>
 #include <string>
 #include <sstream>
 #include <vector>
@@ -19,7 +20,6 @@
 namespace node_db {
 class Query : public node::EventEmitter {
     public:
-
         static void Init(v8::Handle<v8::Object> target, v8::Persistent<v8::FunctionTemplate> constructorTemplate);
         void setConnection(Connection* connection);
         v8::Handle<v8::Value> set(const v8::Arguments& args);
@@ -35,6 +35,7 @@ class Query : public node::EventEmitter {
         std::ostringstream sql;
         bool async;
         bool cast;
+        bool bufferText;
         bool whereAdded;
         v8::Persistent<v8::Array> values;
         v8::Persistent<v8::Function>* cbStart;
@@ -58,16 +59,15 @@ class Query : public node::EventEmitter {
         void execute(execute_request_t* request);
         void executeFinished(execute_request_t* request);
         std::string selectField(v8::Local<v8::Value> value) const throw(Exception&);
-        v8::Local<v8::Object> row(Result* result, std::string** currentRow, bool cast) const;
+        v8::Local<v8::Object> row(Result* result, std::string** currentRow) const;
         std::string parseQuery(const std::string& query, v8::Array* values) const throw(Exception&);
         std::string value(v8::Local<v8::Value> value, bool inArray = false, bool escape = true) const throw(Exception&);
 
     private:
-        uint64_t toDate(const std::string& value, bool hasTime) const throw(Exception&);
+        static bool gmtDeltaLoaded;
+        static int gmtDelta;
+
         std::string fromDate(const uint64_t timeStamp) const throw(Exception&);
-        uint64_t toTime(const std::string& value) const;
-        // GMT delta calculation borrowed from https://github.com/Sannis/node-mysql-libmysqlclient
-        int gmtDelta() const throw(Exception&);
 };
 }
 
