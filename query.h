@@ -25,11 +25,16 @@ class Query : public node::EventEmitter {
         v8::Handle<v8::Value> set(const v8::Arguments& args);
 
     protected:
+        struct row_t {
+            char** columns;
+            uint64_t* columnLengths;
+        };
         struct execute_request_t {
             Query* query;
             Result *result;
             const char* error;
-            std::vector<std::string**>* rows;
+            uint16_t columnCount;
+            std::vector<row_t*>* rows;
         };
         Connection* connection;
         std::ostringstream sql;
@@ -58,8 +63,9 @@ class Query : public node::EventEmitter {
         static int eioExecuteFinished(eio_req* eioRequest);
         void execute(execute_request_t* request);
         void executeFinished(execute_request_t* request);
+        static void freeRequest(execute_request_t* request, bool freeAll = true);
         std::string selectField(v8::Local<v8::Value> value) const throw(Exception&);
-        v8::Local<v8::Object> row(Result* result, std::string** currentRow) const;
+        v8::Local<v8::Object> row(Result* result, row_t* currentRow) const;
         std::string parseQuery(const std::string& query, v8::Array* values) const throw(Exception&);
         std::string value(v8::Local<v8::Value> value, bool inArray = false, bool escape = true) const throw(Exception&);
 

@@ -461,24 +461,41 @@ void node_db::Query::execute(execute_request_t* request) {
     try {
         request->result = this->connection->query(this->sql.str());
         if (request->result != NULL) {
-            request->rows = new std::vector<std::string**>();
+            request->rows = new std::vector<row_t*>();
             if (request->rows == NULL) {
                 throw node_db::Exception("Could not create buffer for rows");
             }
 
-            uint16_t columnCount = request->result->columnCount();
+            request->columnCount = request->result->columnCount();
             while (request->result->hasNext()) {
-                const char **currentRow = request->result->next();
-                std::string** row = new std::string*[columnCount];
+                uint64_t *columnLengths = request->result->columnLengths();
+                const char** currentRow = request->result->next();
+
+                row_t* row = new row_t();
                 if (row == NULL) {
                     throw node_db::Exception("Could not create buffer for row");
                 }
 
-                for (uint16_t i = 0; i < columnCount; i++) {
+                row->columnLengths = new uint64_t[request->columnCount];
+                if (row->columnLengths == NULL) {
+                    throw node_db::Exception("Could not create buffer for column lengths");
+                }
+
+                row->columns = new char*[request->columnCount];
+                if (row->columns == NULL) {
+                    throw node_db::Exception("Could not create buffer for columns");
+                }
+
+                for (uint16_t i = 0; i < request->columnCount; i++) {
+                    row->columnLengths[i] = columnLengths[i];
                     if (currentRow[i] != NULL) {
-                        row[i] = new std::string(currentRow[i]);
+                        row->columns[i] = new char[row->columnLengths[i]];
+                        if (row->columns[i] == NULL) {
+                            throw node_db::Exception("Could not create buffer for column");
+                        }
+                        strncpy(row->columns[i], currentRow[i], row->columnLengths[i]);
                     } else {
-                        row[i] = NULL;
+                        row->columns[i] = NULL;
                     }
                 }
 
@@ -486,9 +503,7 @@ void node_db::Query::execute(execute_request_t* request) {
             }
         }
     } catch(const node_db::Exception& exception) {
-        if (request->rows != NULL) {
-            delete request->rows;
-        }
+        Query::freeRequest(request, false);
         request->error = exception.what();
     }
 }
@@ -501,8 +516,8 @@ void node_db::Query::executeFinished(execute_request_t* request) {
         v8::Local<v8::Array> rows = v8::Array::New(request->rows->size());
 
         uint64_t index = 0;
-        for (std::vector<std::string**>::iterator iterator = request->rows->begin(), end = request->rows->end(); iterator != end; ++iterator, index++) {
-            std::string** currentRow = *iterator;
+        for (std::vector<row_t*>::iterator iterator = request->rows->begin(), end = request->rows->end(); iterator != end; ++iterator, index++) {
+            row_t* currentRow = *iterator;
             v8::Local<v8::Object> row = this->row(request->result, currentRow);
             v8::Local<v8::Value> eachArgv[3];
 
@@ -560,26 +575,33 @@ void node_db::Query::executeFinished(execute_request_t* request) {
         this->Unref();
     }
 
-    if (request->result != NULL) {
-        if (request->rows != NULL) {
-            uint16_t columnCount = request->result->columnCount();
-            for (std::vector<std::string**>::iterator iterator = request->rows->begin(), end = request->rows->end(); iterator != end; ++iterator) {
-                std::string** row = *iterator;
-                for (uint16_t i = 0; i < columnCount; i++) {
-                    if (row[i] != NULL) {
-                        delete row[i];
-                    }
-                }
-                delete [] row;
-            }
+    Query::freeRequest(request);
+}
 
-            delete request->rows;
+void node_db::Query::freeRequest(execute_request_t* request, bool freeAll) {
+    if (request->rows != NULL) {
+        for (std::vector<row_t*>::iterator iterator = request->rows->begin(), end = request->rows->end(); iterator != end; ++iterator) {
+            row_t* row = *iterator;
+            for (uint16_t i = 0; i < request->columnCount; i++) {
+                if (row->columns[i] != NULL) {
+                    delete row->columns[i];
+                }
+            }
+            delete [] row->columnLengths;
+            delete [] row->columns;
+            delete row;
         }
 
-        delete request->result;
+        delete request->rows;
     }
 
-    delete request;
+    if (freeAll) {
+        if (request->result != NULL) {
+            delete request->result;
+        }
+
+        delete request;
+    }
 }
 
 v8::Handle<v8::Value> node_db::Query::set(const v8::Arguments& args) {
@@ -662,9 +684,6 @@ v8::Handle<v8::Value> node_db::Query::set(const v8::Arguments& args) {
         ARG_CHECK_OBJECT_ATTR_OPTIONAL_BOOL(options, bufferText);
         ARG_CHECK_OBJECT_ATTR_OPTIONAL_FUNCTION(options, start);
         ARG_CHECK_OBJECT_ATTR_OPTIONAL_FUNCTION(options, finish);
-        ARG_CHECK_OBJECT_ATTR_OPTIONAL_FUNCTION(options, success);
-        ARG_CHECK_OBJECT_ATTR_OPTIONAL_FUNCTION(options, error);
-        ARG_CHECK_OBJECT_ATTR_OPTIONAL_FUNCTION(options, each);
 
         if (options->Has(async_key)) {
             this->async = options->Get(async_key)->IsTrue();
@@ -705,23 +724,24 @@ v8::Handle<v8::Value> node_db::Query::set(const v8::Arguments& args) {
     return v8::Handle<v8::Value>();
 }
 
-v8::Local<v8::Object> node_db::Query::row(node_db::Result* result, std::string** currentRow) const {
+v8::Local<v8::Object> node_db::Query::row(node_db::Result* result, row_t* currentRow) const {
     v8::Local<v8::Object> row = v8::Object::New();
 
     for (uint16_t j = 0, limitj = result->columnCount(); j < limitj; j++) {
         node_db::Result::Column* currentColumn = result->column(j);
         v8::Local<v8::Value> value;
 
-        if (currentRow[j] != NULL) {
-            const char* currentValue = currentRow[j]->c_str();
+        if (currentRow->columns[j] != NULL) {
+            const char* currentValue = currentRow->columns[j];
+            uint64_t currentLength = currentRow->columnLengths[j];
             if (this->cast) {
                 node_db::Result::Column::type_t columnType = currentColumn->getType();
                 switch (columnType) {
                     case node_db::Result::Column::BOOL:
-                        value = v8::Local<v8::Value>::New(currentRow[j]->empty() || currentRow[j]->compare("0") != 0 ? v8::True() : v8::False());
+                        value = v8::Local<v8::Value>::New(currentValue == NULL || currentLength == 0 || currentValue[0] != '0' ? v8::True() : v8::False());
                         break;
                     case node_db::Result::Column::INT:
-                        value = v8::String::New(currentValue)->ToInteger();
+                        value = v8::String::New(currentValue, currentLength)->ToInteger();
                         break;
                     case node_db::Result::Column::NUMBER:
                         value = v8::Number::New(::atof(currentValue));
@@ -729,7 +749,7 @@ v8::Local<v8::Object> node_db::Query::row(node_db::Result* result, std::string**
                     case node_db::Result::Column::TIME:
                         {
                             int hour, min, sec;
-                            sscanf(currentRow[j]->c_str(), "%d:%d:%d", &hour, &min, &sec);
+                            sscanf(currentValue, "%d:%d:%d", &hour, &min, &sec);
                             value = v8::Date::New(static_cast<uint64_t>((hour*60*60 + min*60 + sec) * 1000));
                         }
                         break;
@@ -742,9 +762,9 @@ v8::Local<v8::Object> node_db::Query::row(node_db::Result* result, std::string**
                             struct tm timeinfo;
 
                             if (columnType == node_db::Result::Column::DATETIME) {
-                                sscanf(currentRow[j]->c_str(), "%d-%d-%d %d:%d:%d", &year, &month, &day, &hour, &min, &sec);
+                                sscanf(currentValue, "%d-%d-%d %d:%d:%d", &year, &month, &day, &hour, &min, &sec);
                             } else {
-                                sscanf(currentRow[j]->c_str(), "%d-%d-%d", &year, &month, &day);
+                                sscanf(currentValue, "%d-%d-%d", &year, &month, &day);
                             }
 
                             time(&rawtime);
@@ -782,13 +802,13 @@ v8::Local<v8::Object> node_db::Query::row(node_db::Result* result, std::string**
 
                             value = v8::Date::New(static_cast<uint64_t>((mktime(&timeinfo) + Query::gmtDelta) * 1000));
                         } catch(const node_db::Exception&) {
-                            value = v8::String::New(currentValue);
+                            value = v8::String::New(currentValue, currentLength);
                         }
                         break;
                     case node_db::Result::Column::SET:
                         {
                             v8::Local<v8::Array> values = v8::Array::New();
-                            std::istringstream stream(*currentRow[j]);
+                            std::istringstream stream(currentValue);
                             std::string item;
                             uint64_t index = 0;
                             while (std::getline(stream, item, ',')) {
@@ -800,18 +820,18 @@ v8::Local<v8::Object> node_db::Query::row(node_db::Result* result, std::string**
                         }
                         break;
                     case node_db::Result::Column::TEXT:
-                        if (this->bufferText) {
-                            value = v8::Local<v8::Value>::New(node::Buffer::New(v8::String::New(currentValue, currentRow[j]->length())));
+                        if (this->bufferText || currentColumn->isBinary()) {
+                            value = v8::Local<v8::Value>::New(node::Buffer::New(v8::String::New(currentValue, currentLength)));
                         } else {
-                            value = v8::String::New(currentValue);
+                            value = v8::String::New(currentValue, currentLength);
                         }
                         break;
                     default:
-                        value = v8::String::New(currentValue);
+                        value = v8::String::New(currentValue, currentLength);
                         break;
                 }
             } else {
-                value = v8::String::New(currentValue);
+                value = v8::String::New(currentValue, currentLength);
             }
         } else {
             value = v8::Local<v8::Value>::New(v8::Null());
