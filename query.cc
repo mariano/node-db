@@ -12,6 +12,8 @@ void node_db::Query::Init(v8::Handle<v8::Object> target, v8::Persistent<v8::Func
     NODE_ADD_PROTOTYPE_METHOD(constructorTemplate, "from", From);
     NODE_ADD_PROTOTYPE_METHOD(constructorTemplate, "join", Join);
     NODE_ADD_PROTOTYPE_METHOD(constructorTemplate, "where", Where);
+    NODE_ADD_PROTOTYPE_METHOD(constructorTemplate, "and", And);
+    NODE_ADD_PROTOTYPE_METHOD(constructorTemplate, "or", Or);
     NODE_ADD_PROTOTYPE_METHOD(constructorTemplate, "limit", Limit);
     NODE_ADD_PROTOTYPE_METHOD(constructorTemplate, "add", Add);
     NODE_ADD_PROTOTYPE_METHOD(constructorTemplate, "execute", Execute);
@@ -22,7 +24,7 @@ void node_db::Query::Init(v8::Handle<v8::Object> target, v8::Persistent<v8::Func
 }
 
 node_db::Query::Query(): node::EventEmitter(),
-    connection(NULL), async(true), cast(true), bufferText(false), whereAdded(false), cbStart(NULL), cbSuccess(NULL), cbFinish(NULL) {
+    connection(NULL), async(true), cast(true), bufferText(false), cbStart(NULL), cbSuccess(NULL), cbFinish(NULL) {
 }
 
 node_db::Query::~Query() {
@@ -301,11 +303,33 @@ v8::Handle<v8::Value> node_db::Query::Join(const v8::Arguments& args) {
 v8::Handle<v8::Value> node_db::Query::Where(const v8::Arguments& args) {
     v8::HandleScope scope;
 
-    ARG_CHECK_STRING(0, conditions);
-    ARG_CHECK_OPTIONAL_ARRAY(1, values);
+    node_db::Query *query = node::ObjectWrap::Unwrap<node_db::Query>(args.This());
+    assert(query);
+
+    return scope.Close(query->addCondition(args, "WHERE"));
+}
+
+v8::Handle<v8::Value> node_db::Query::And(const v8::Arguments& args) {
+    v8::HandleScope scope;
 
     node_db::Query *query = node::ObjectWrap::Unwrap<node_db::Query>(args.This());
     assert(query);
+
+    return scope.Close(query->addCondition(args, "AND"));
+}
+
+v8::Handle<v8::Value> node_db::Query::Or(const v8::Arguments& args) {
+    v8::HandleScope scope;
+
+    node_db::Query *query = node::ObjectWrap::Unwrap<node_db::Query>(args.This());
+    assert(query);
+
+    return scope.Close(query->addCondition(args, "OR"));
+}
+
+v8::Handle<v8::Value> node_db::Query::addCondition(const v8::Arguments& args, const char* separator) {
+    ARG_CHECK_STRING(0, conditions);
+    ARG_CHECK_OPTIONAL_ARRAY(1, values);
 
     v8::String::Utf8Value conditions(args[0]->ToString());
     std::string currentConditions = *conditions;
@@ -315,20 +339,15 @@ v8::Handle<v8::Value> node_db::Query::Where(const v8::Arguments& args) {
     }
 
     try {
-        currentConditions = query->parseQuery(currentConditions, *currentValues);
+        currentConditions = this->parseQuery(currentConditions, *currentValues);
     } catch(const node_db::Exception& exception) {
         THROW_EXCEPTION(exception.what())
     }
 
-    if (query->whereAdded) {
-        query->sql << " AND ";
-    } else {
-        query->whereAdded = true;
-        query->sql << " WHERE ";
-    }
-    query->sql << currentConditions;
+    this->sql << " " << separator << " ";
+    this->sql << currentConditions;
 
-    return scope.Close(args.This());
+    return args.This();
 }
 
 v8::Handle<v8::Value> node_db::Query::Limit(const v8::Arguments& args) {
