@@ -69,7 +69,7 @@ do {                                                                      \
 #define ARG_CHECK_OBJECT(I, VAR) \
     if (args.Length() <= I) { \
         THROW_EXCEPTION("Argument \"" #VAR "\" is mandatory") \
-    } else if (!args[I]->IsObject() || args[I]->IsFunction() || args[I]->IsUndefined()) { \
+    } else if (!args[I]->IsObject() || args[I]->IsFunction() || args[I]->IsArray() || args[I]->IsDate() || args[I]->IsUndefined()) { \
         THROW_EXCEPTION("Argument \"" #VAR "\" must be a valid object") \
     }
 

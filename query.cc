@@ -16,6 +16,10 @@ void node_db::Query::Init(v8::Handle<v8::Object> target, v8::Persistent<v8::Func
     NODE_ADD_PROTOTYPE_METHOD(constructorTemplate, "or", Or);
     NODE_ADD_PROTOTYPE_METHOD(constructorTemplate, "limit", Limit);
     NODE_ADD_PROTOTYPE_METHOD(constructorTemplate, "add", Add);
+    NODE_ADD_PROTOTYPE_METHOD(constructorTemplate, "insert", Insert);
+    NODE_ADD_PROTOTYPE_METHOD(constructorTemplate, "update", Update);
+    NODE_ADD_PROTOTYPE_METHOD(constructorTemplate, "set", Set);
+    NODE_ADD_PROTOTYPE_METHOD(constructorTemplate, "delete", Delete);
     NODE_ADD_PROTOTYPE_METHOD(constructorTemplate, "execute", Execute);
 
     sySuccess = NODE_PERSISTENT_SYMBOL("success");
@@ -76,14 +80,14 @@ v8::Handle<v8::Value> node_db::Query::Select(const v8::Arguments& args) {
             }
 
             try {
-                query->sql << query->selectField(fields->Get(i));
+                query->sql << query->fieldName(fields->Get(i));
             } catch(const node_db::Exception& exception) {
                 THROW_EXCEPTION(exception.what())
             }
         }
     } else if (args[0]->IsObject()) {
         try {
-            query->sql << query->selectField(args[0]);
+            query->sql << query->fieldName(args[0]);
         } catch(const node_db::Exception& exception) {
             THROW_EXCEPTION(exception.what())
         }
@@ -93,65 +97,6 @@ v8::Handle<v8::Value> node_db::Query::Select(const v8::Arguments& args) {
     }
 
     return scope.Close(args.This());
-}
-
-std::string node_db::Query::selectField(v8::Local<v8::Value> value) const throw(node_db::Exception&) {
-    std::ostringstream buffer;
-
-    if (value->IsObject()) {
-        v8::Local<v8::Object> valueObject = value->ToObject();
-        v8::Local<v8::Array> valueProperties = valueObject->GetPropertyNames();
-        if (valueProperties->Length() == 0) {
-            throw node_db::Exception("Non empty objects should be used for value aliasing in select");
-        }
-
-        for (uint32_t j = 0, limitj = valueProperties->Length(); j < limitj; j++) {
-            v8::Local<v8::Value> propertyName = valueProperties->Get(j);
-            v8::String::Utf8Value fieldName(propertyName);
-
-            v8::Local<v8::Value> currentValue = valueObject->Get(propertyName);
-            if (currentValue->IsObject() && !currentValue->IsArray() && !currentValue->IsFunction() && !currentValue->IsDate()) {
-                v8::Local<v8::Object> currentObject = currentValue->ToObject();
-                v8::Local<v8::String> escapeKey = v8::String::New("escape");
-                v8::Local<v8::String> valueKey = v8::String::New("value");
-                v8::Local<v8::Value> optionValue;
-                bool escape = false;
-
-                if (!currentObject->Has(valueKey)) {
-                    throw node_db::Exception("The \"value\" option for the select field object must be specified");
-                }
-
-                if (currentObject->Has(escapeKey)) {
-                    optionValue = currentObject->Get(escapeKey);
-                    if (!optionValue->IsBoolean()) {
-                        throw node_db::Exception("Specify a valid boolean value for the \"escape\" option in the select field object");
-                    }
-                    escape = optionValue->IsTrue();
-                }
-
-                if (j > 0) {
-                    buffer << ",";
-                }
-
-                buffer << this->value(currentObject->Get(valueKey), false, escape);
-            } else {
-                if (j > 0) {
-                    buffer << ",";
-                }
-
-                buffer << this->value(currentValue, false, currentValue->IsString() ? false : true);
-            }
-
-            buffer << " AS " << this->connection->quoteField << *fieldName << this->connection->quoteField;
-        }
-    } else if (value->IsString()) {
-        v8::String::Utf8Value fieldName(value->ToString());
-        buffer << this->connection->quoteField << *fieldName << this->connection->quoteField;
-    } else {
-        throw node_db::Exception("Incorrect value type provided as field for select");
-    }
-
-    return buffer.str();
 }
 
 v8::Handle<v8::Value> node_db::Query::From(const v8::Arguments& args) {
@@ -179,48 +124,10 @@ v8::Handle<v8::Value> node_db::Query::From(const v8::Arguments& args) {
 
     query->sql << " FROM ";
 
-    if (args[0]->IsObject()) {
-        v8::Local<v8::Object> valueObject = args[0]->ToObject();
-        v8::Local<v8::Array> valueProperties = valueObject->GetPropertyNames();
-        if (valueProperties->Length() == 0) {
-            THROW_EXCEPTION("Non empty objects should be used for aliasing in from")
-        }
-
-        v8::Local<v8::Value> propertyName = valueProperties->Get(0);
-        v8::Local<v8::Value> propertyValue = valueObject->Get(propertyName);
-
-        if (!propertyName->IsString() || !propertyValue->IsString()) {
-            THROW_EXCEPTION("Only strings are allowed for table / alias name in from")
-        }
-
-        v8::String::Utf8Value table(propertyValue);
-        v8::String::Utf8Value alias(propertyName);
-
-        if (escape) {
-            query->sql << query->connection->quoteTable;
-        }
-        query->sql << *table;
-        if (escape) {
-            query->sql << query->connection->quoteTable;
-        }
-        query->sql << " AS ";
-        if (escape) {
-            query->sql << query->connection->quoteTable;
-        }
-        query->sql << *alias;
-        if (escape) {
-            query->sql << query->connection->quoteTable;
-        }
-    } else {
-        v8::String::Utf8Value tables(args[0]->ToString());
-
-        if (escape) {
-            query->sql << query->connection->quoteTable;
-        }
-        query->sql << *tables;
-        if (escape) {
-            query->sql << query->connection->quoteTable;
-        }
+    try {
+        query->sql << query->tableName(args[0], escape);
+    } catch(const node_db::Exception& exception) {
+        THROW_EXCEPTION(exception.what());
     }
 
     return scope.Close(args.This());
@@ -327,29 +234,6 @@ v8::Handle<v8::Value> node_db::Query::Or(const v8::Arguments& args) {
     return scope.Close(query->addCondition(args, "OR"));
 }
 
-v8::Handle<v8::Value> node_db::Query::addCondition(const v8::Arguments& args, const char* separator) {
-    ARG_CHECK_STRING(0, conditions);
-    ARG_CHECK_OPTIONAL_ARRAY(1, values);
-
-    v8::String::Utf8Value conditions(args[0]->ToString());
-    std::string currentConditions = *conditions;
-    v8::Local<v8::Array> currentValues;
-    if (args.Length() > 1) {
-        currentValues = v8::Array::Cast(*args[1]);
-    }
-
-    try {
-        currentConditions = this->parseQuery(currentConditions, *currentValues);
-    } catch(const node_db::Exception& exception) {
-        THROW_EXCEPTION(exception.what())
-    }
-
-    this->sql << " " << separator << " ";
-    this->sql << currentConditions;
-
-    return args.This();
-}
-
 v8::Handle<v8::Value> node_db::Query::Limit(const v8::Arguments& args) {
     v8::HandleScope scope;
 
@@ -385,6 +269,237 @@ v8::Handle<v8::Value> node_db::Query::Add(const v8::Arguments& args) {
 
     v8::String::Utf8Value sql(args[0]->ToString());
     query->sql << " " << *sql;
+
+    return scope.Close(args.This());
+}
+
+v8::Handle<v8::Value> node_db::Query::Delete(const v8::Arguments& args) {
+    v8::HandleScope scope;
+
+    if (args.Length() > 0) {
+        if (args[0]->IsObject()) {
+            ARG_CHECK_OBJECT(0, tables);
+        } else {
+            ARG_CHECK_STRING(0, tables);
+        }
+        ARG_CHECK_OPTIONAL_BOOL(1, escape);
+    }
+
+    node_db::Query *query = node::ObjectWrap::Unwrap<node_db::Query>(args.This());
+    assert(query);
+
+    bool escape = true;
+    if (args.Length() > 1) {
+        escape = args[1]->IsTrue();
+    }
+
+    query->sql << "DELETE";
+
+    if (args.Length() > 0) {
+        try {
+            query->sql << " " << query->tableName(args[0], escape);
+        } catch(const node_db::Exception& exception) {
+            THROW_EXCEPTION(exception.what());
+        }
+    }
+
+    return scope.Close(args.This());
+}
+
+v8::Handle<v8::Value> node_db::Query::Insert(const v8::Arguments& args) {
+    v8::HandleScope scope;
+    uint32_t argsLength = args.Length();
+
+    if (argsLength > 0) {
+        if (argsLength > 1) {
+            if (args[1]->IsArray()) {
+                ARG_CHECK_ARRAY(1, fields);
+            } else if (args[1]->IsObject()) {
+                ARG_CHECK_OBJECT(1, fields);
+            } else if (!args[1]->IsFalse()) {
+                ARG_CHECK_STRING(1, fields);
+            }
+        }
+
+        if (argsLength > 2) {
+            ARG_CHECK_ARRAY(2, values);
+            ARG_CHECK_OPTIONAL_BOOL(3, escape);
+        }
+    } else {
+        ARG_CHECK_STRING(0, table);
+    }
+
+    node_db::Query *query = node::ObjectWrap::Unwrap<node_db::Query>(args.This());
+    assert(query);
+
+    bool escape = true;
+    if (argsLength > 3) {
+        escape = args[3]->IsTrue();
+    }
+
+    try {
+        query->sql << "INSERT INTO " << query->tableName(args[0], escape);
+    } catch(const node_db::Exception& exception) {
+        THROW_EXCEPTION(exception.what());
+    }
+
+    if (argsLength > 1) {
+        if (!args[1]->IsFalse()) {
+            query->sql << "(";
+            if (args[1]->IsArray()) {
+                v8::Local<v8::Array> fields = v8::Array::Cast(*args[1]);
+                if (fields->Length() == 0) {
+                    THROW_EXCEPTION("No fields specified in insert")
+                }
+
+                for (uint32_t i = 0, limiti = fields->Length(); i < limiti; i++) {
+                    if (i > 0) {
+                        query->sql << ",";
+                    }
+
+                    try {
+                        query->sql << query->fieldName(fields->Get(i));
+                    } catch(const node_db::Exception& exception) {
+                        THROW_EXCEPTION(exception.what())
+                    }
+                }
+            } else {
+                v8::String::Utf8Value fields(args[1]->ToString());
+                query->sql << *fields;
+            }
+            query->sql << ")";
+        }
+
+        query->sql << " ";
+
+        if (argsLength > 2) {
+            v8::Local<v8::Array> values = v8::Array::Cast(*args[2]);
+            uint32_t valuesLength = values->Length();
+            if (valuesLength > 0) {
+                bool multipleRecords = values->Get(0)->IsArray();
+
+                query->sql << "VALUES ";
+                if (!multipleRecords) {
+                    query->sql << "(";
+                }
+
+                for (uint32_t i=0; i < valuesLength; i++) {
+                    if (i > 0) {
+                        query->sql << ",";
+                    }
+                    query->sql << query->value(values->Get(i));
+                }
+
+                if (!multipleRecords) {
+                    query->sql << ")";
+                }
+            }
+        }
+    } else {
+        query->sql << " ";
+    }
+
+    return scope.Close(args.This());
+}
+
+v8::Handle<v8::Value> node_db::Query::Update(const v8::Arguments& args) {
+    v8::HandleScope scope;
+
+    if (args.Length() > 0) {
+        if (args[0]->IsObject()) {
+            ARG_CHECK_OBJECT(0, tables);
+        } else {
+            ARG_CHECK_STRING(0, tables);
+        }
+    } else {
+        ARG_CHECK_STRING(0, tables);
+    }
+
+    ARG_CHECK_OPTIONAL_BOOL(1, escape);
+
+    node_db::Query *query = node::ObjectWrap::Unwrap<node_db::Query>(args.This());
+    assert(query);
+
+    bool escape = true;
+    if (args.Length() > 1) {
+        escape = args[1]->IsTrue();
+    }
+
+    query->sql << "UPDATE ";
+
+    try {
+        query->sql << query->tableName(args[0], escape);
+    } catch(const node_db::Exception& exception) {
+        THROW_EXCEPTION(exception.what());
+    }
+
+    return scope.Close(args.This());
+}
+
+v8::Handle<v8::Value> node_db::Query::Set(const v8::Arguments& args) {
+    v8::HandleScope scope;
+
+    ARG_CHECK_OBJECT(0, values);
+    ARG_CHECK_OPTIONAL_BOOL(1, escape);
+
+    node_db::Query *query = node::ObjectWrap::Unwrap<node_db::Query>(args.This());
+    assert(query);
+
+    bool escape = true;
+    if (args.Length() > 1) {
+        escape = args[1]->IsTrue();
+    }
+
+    query->sql << " SET ";
+
+    v8::Local<v8::Object> values = args[0]->ToObject();
+    v8::Local<v8::Array> valueProperties = values->GetPropertyNames();
+    if (valueProperties->Length() == 0) {
+        THROW_EXCEPTION("Non empty objects should be used for values in set");
+    }
+
+    for (uint32_t j = 0, limitj = valueProperties->Length(); j < limitj; j++) {
+        v8::Local<v8::Value> propertyName = valueProperties->Get(j);
+        v8::String::Utf8Value fieldName(propertyName);
+        v8::Local<v8::Value> currentValue = values->Get(propertyName);
+
+        if (j > 0) {
+            query->sql << ",";
+        }
+
+        if (escape) {
+            query->sql << query->connection->quoteTable;
+        }
+        query->sql << *fieldName;
+        if (escape) {
+            query->sql << query->connection->quoteTable;
+        }
+        query->sql << "=";
+
+        bool escape = true;
+        if (currentValue->IsObject() && !currentValue->IsArray() && !currentValue->IsFunction() && !currentValue->IsDate()) {
+            v8::Local<v8::Object> currentObject = currentValue->ToObject();
+            v8::Local<v8::String> escapeKey = v8::String::New("escape");
+            v8::Local<v8::String> valueKey = v8::String::New("value");
+            v8::Local<v8::Value> optionValue;
+
+            if (!currentObject->Has(valueKey)) {
+                throw node_db::Exception("The \"value\" option for the select field object must be specified");
+            }
+
+            if (currentObject->Has(escapeKey)) {
+                optionValue = currentObject->Get(escapeKey);
+                if (!optionValue->IsBoolean()) {
+                    throw node_db::Exception("Specify a valid boolean value for the \"escape\" option in the select field object");
+                }
+                escape = optionValue->IsTrue();
+            }
+
+            currentValue = currentObject->Get(valueKey);
+        }
+
+        query->sql << query->value(currentValue, false, escape);
+    }
 
     return scope.Close(args.This());
 }
@@ -454,6 +569,139 @@ v8::Handle<v8::Value> node_db::Query::Execute(const v8::Arguments& args) {
     }
 
     return scope.Close(v8::Undefined());
+}
+
+
+std::string node_db::Query::fieldName(v8::Local<v8::Value> value) const throw(node_db::Exception&) {
+    std::ostringstream buffer;
+
+    if (value->IsObject()) {
+        v8::Local<v8::Object> valueObject = value->ToObject();
+        v8::Local<v8::Array> valueProperties = valueObject->GetPropertyNames();
+        if (valueProperties->Length() == 0) {
+            throw node_db::Exception("Non empty objects should be used for value aliasing in select");
+        }
+
+        for (uint32_t j = 0, limitj = valueProperties->Length(); j < limitj; j++) {
+            v8::Local<v8::Value> propertyName = valueProperties->Get(j);
+            v8::String::Utf8Value fieldName(propertyName);
+
+            v8::Local<v8::Value> currentValue = valueObject->Get(propertyName);
+            if (currentValue->IsObject() && !currentValue->IsArray() && !currentValue->IsFunction() && !currentValue->IsDate()) {
+                v8::Local<v8::Object> currentObject = currentValue->ToObject();
+                v8::Local<v8::String> escapeKey = v8::String::New("escape");
+                v8::Local<v8::String> valueKey = v8::String::New("value");
+                v8::Local<v8::Value> optionValue;
+                bool escape = false;
+
+                if (!currentObject->Has(valueKey)) {
+                    throw node_db::Exception("The \"value\" option for the select field object must be specified");
+                }
+
+                if (currentObject->Has(escapeKey)) {
+                    optionValue = currentObject->Get(escapeKey);
+                    if (!optionValue->IsBoolean()) {
+                        throw node_db::Exception("Specify a valid boolean value for the \"escape\" option in the select field object");
+                    }
+                    escape = optionValue->IsTrue();
+                }
+
+                if (j > 0) {
+                    buffer << ",";
+                }
+
+                buffer << this->value(currentObject->Get(valueKey), false, escape);
+            } else {
+                if (j > 0) {
+                    buffer << ",";
+                }
+
+                buffer << this->value(currentValue, false, currentValue->IsString() ? false : true);
+            }
+
+            buffer << " AS " << this->connection->quoteField << *fieldName << this->connection->quoteField;
+        }
+    } else if (value->IsString()) {
+        v8::String::Utf8Value fieldName(value->ToString());
+        buffer << this->connection->quoteField << *fieldName << this->connection->quoteField;
+    } else {
+        throw node_db::Exception("Incorrect value type provided as field for select");
+    }
+
+    return buffer.str();
+}
+
+std::string node_db::Query::tableName(v8::Local<v8::Value> value, bool escape) const throw(node_db::Exception&) {
+    std::ostringstream buffer;
+
+    if (value->IsObject()) {
+        v8::Local<v8::Object> valueObject = value->ToObject();
+        v8::Local<v8::Array> valueProperties = valueObject->GetPropertyNames();
+        if (valueProperties->Length() == 0) {
+            throw node_db::Exception("Non empty objects should be used for aliasing");
+        }
+
+        v8::Local<v8::Value> propertyName = valueProperties->Get(0);
+        v8::Local<v8::Value> propertyValue = valueObject->Get(propertyName);
+
+        if (!propertyName->IsString() || !propertyValue->IsString()) {
+            throw node_db::Exception("Only strings are allowed for table / alias name");
+        }
+
+        v8::String::Utf8Value table(propertyValue);
+        v8::String::Utf8Value alias(propertyName);
+
+        if (escape) {
+            buffer << this->connection->quoteTable;
+        }
+        buffer << *table;
+        if (escape) {
+            buffer << this->connection->quoteTable;
+        }
+        buffer << " AS ";
+        if (escape) {
+            buffer << this->connection->quoteTable;
+        }
+        buffer << *alias;
+        if (escape) {
+            buffer << this->connection->quoteTable;
+        }
+    } else {
+        v8::String::Utf8Value tables(value->ToString());
+
+        if (escape) {
+            buffer << this->connection->quoteTable;
+        }
+        buffer << *tables;
+        if (escape) {
+            buffer << this->connection->quoteTable;
+        }
+    }
+
+    return buffer.str();
+}
+
+v8::Handle<v8::Value> node_db::Query::addCondition(const v8::Arguments& args, const char* separator) {
+    ARG_CHECK_STRING(0, conditions);
+    ARG_CHECK_OPTIONAL_ARRAY(1, values);
+
+    v8::String::Utf8Value conditions(args[0]->ToString());
+    std::string currentConditions = *conditions;
+    v8::Local<v8::Array> currentValues;
+    if (args.Length() > 1) {
+        currentValues = v8::Array::Cast(*args[1]);
+    }
+
+    try {
+        currentConditions = this->parseQuery(currentConditions, *currentValues);
+    } catch(const node_db::Exception& exception) {
+        THROW_EXCEPTION(exception.what())
+    }
+
+    this->sql << " " << separator << " ";
+    this->sql << currentConditions;
+
+    return args.This();
 }
 
 int node_db::Query::eioExecute(eio_req* eioRequest) {
