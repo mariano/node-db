@@ -3,10 +3,9 @@
 
 node_db::Connection::Connection()
     :quoteString('\''),
-    quoteField('`'),
-    quoteTable('`'),
     port(3306),
-    opened(false) {
+    opened(false),
+    quoteName('`') {
 }
 
 node_db::Connection::~Connection() {
@@ -54,4 +53,26 @@ void node_db::Connection::setPort(uint32_t port) {
 
 bool node_db::Connection::isOpened() const {
     return this->opened;
+}
+
+std::string node_db::Connection::escapeName(const std::string& string) const throw(Exception&) {
+    std::string escaped;
+    if (string.find_first_of('.') != string.npos) {
+        char* original = new char[string.size()+1];
+        strcpy(original, string.c_str());
+        char* token = strtok(original, ".");
+        while(token != NULL) {
+            escaped += this->quoteName;
+            escaped += token;
+            escaped += this->quoteName;
+            token = strtok(NULL, ".");
+            if (token != NULL) {
+                escaped += '.';
+            }
+        }
+        delete [] original;
+    } else {
+        escaped = this->quoteName + string + this->quoteName;
+    }
+    return escaped;
 }

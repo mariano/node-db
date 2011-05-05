@@ -226,7 +226,7 @@ v8::Handle<v8::Value> node_db::Binding::Table(const v8::Arguments& args) {
     try {
         v8::String::Utf8Value string(args[0]->ToString());
         std::string unescaped(*string);
-        escaped << binding->connection->quoteTable << unescaped << binding->connection->quoteTable;
+        escaped << binding->connection->escapeName(unescaped);
     } catch(const node_db::Exception& exception) {
         THROW_EXCEPTION(exception.what())
     }
@@ -247,7 +247,7 @@ v8::Handle<v8::Value> node_db::Binding::Field(const v8::Arguments& args) {
     try {
         v8::String::Utf8Value string(args[0]->ToString());
         std::string unescaped(*string);
-        escaped << binding->connection->quoteField << unescaped << binding->connection->quoteField;
+        escaped << binding->connection->escapeName(unescaped);
     } catch(const node_db::Exception& exception) {
         THROW_EXCEPTION(exception.what())
     }

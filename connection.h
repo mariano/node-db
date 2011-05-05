@@ -3,6 +3,7 @@
 #define CONNECTION_H_
 
 #include <stdint.h>
+#include <cstring>
 #include <string>
 #include "./exception.h"
 #include "./result.h"
@@ -10,9 +11,7 @@
 namespace node_db {
 class Connection {
     public:
-        char quoteString;
-        char quoteField;
-        char quoteTable;
+        const char quoteString;
 
         Connection();
         virtual ~Connection();
@@ -27,6 +26,7 @@ class Connection {
         virtual uint32_t getPort() const;
         virtual void setPort(uint32_t port);
         virtual bool isOpened() const;
+        virtual std::string escapeName(const std::string& string) const throw(Exception&);
         virtual void open() throw(Exception&) = 0;
         virtual void close() = 0;
         virtual std::string escape(const std::string& string) const throw(Exception&) = 0;
@@ -40,6 +40,7 @@ class Connection {
         std::string database;
         uint32_t port;
         bool opened;
+        const char quoteName;
 };
 }
 

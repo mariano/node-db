@@ -166,25 +166,12 @@ v8::Handle<v8::Value> node_db::Query::Join(const v8::Arguments& args) {
     v8::String::Utf8Value table(join->Get(table_key)->ToString());
 
     query->sql << " " << type << " JOIN ";
-    if (escape) {
-        query->sql << query->connection->quoteTable;
-    }
-    query->sql << *table;
-    if (escape) {
-        query->sql << query->connection->quoteTable;
-    }
+    query->sql << (escape ? query->connection->escapeName(*table) : *table);
 
     if (join->Has(alias_key)) {
         v8::String::Utf8Value alias(join->Get(alias_key)->ToString());
-
         query->sql << " AS ";
-        if (escape) {
-            query->sql << query->connection->quoteTable;
-        }
-        query->sql << *alias;
-        if (escape) {
-            query->sql << query->connection->quoteTable;
-        }
+        query->sql << (escape ? query->connection->escapeName(*alias) : *alias);
     }
 
     if (join->Has(conditions_key)) {
@@ -467,13 +454,7 @@ v8::Handle<v8::Value> node_db::Query::Set(const v8::Arguments& args) {
             query->sql << ",";
         }
 
-        if (escape) {
-            query->sql << query->connection->quoteTable;
-        }
-        query->sql << *fieldName;
-        if (escape) {
-            query->sql << query->connection->quoteTable;
-        }
+        query->sql << (escape ? query->connection->escapeName(*fieldName) : *fieldName);
         query->sql << "=";
 
         bool escape = true;
@@ -573,7 +554,7 @@ v8::Handle<v8::Value> node_db::Query::Execute(const v8::Arguments& args) {
 
 
 std::string node_db::Query::fieldName(v8::Local<v8::Value> value) const throw(node_db::Exception&) {
-    std::ostringstream buffer;
+    std::string buffer;
 
     if (value->IsObject()) {
         v8::Local<v8::Object> valueObject = value->ToObject();
@@ -607,32 +588,33 @@ std::string node_db::Query::fieldName(v8::Local<v8::Value> value) const throw(no
                 }
 
                 if (j > 0) {
-                    buffer << ",";
+                    buffer += ',';
                 }
 
-                buffer << this->value(currentObject->Get(valueKey), false, escape);
+                buffer += this->value(currentObject->Get(valueKey), false, escape);
             } else {
                 if (j > 0) {
-                    buffer << ",";
+                    buffer += ',';
                 }
 
-                buffer << this->value(currentValue, false, currentValue->IsString() ? false : true);
+                buffer += this->value(currentValue, false, currentValue->IsString() ? false : true);
             }
 
-            buffer << " AS " << this->connection->quoteField << *fieldName << this->connection->quoteField;
+            buffer += " AS ";
+            buffer += this->connection->escapeName(*fieldName);
         }
     } else if (value->IsString()) {
         v8::String::Utf8Value fieldName(value->ToString());
-        buffer << this->connection->quoteField << *fieldName << this->connection->quoteField;
+        buffer += this->connection->escapeName(*fieldName);
     } else {
         throw node_db::Exception("Incorrect value type provided as field for select");
     }
 
-    return buffer.str();
+    return buffer;
 }
 
 std::string node_db::Query::tableName(v8::Local<v8::Value> value, bool escape) const throw(node_db::Exception&) {
-    std::ostringstream buffer;
+    std::string buffer;
 
     if (value->IsObject()) {
         v8::Local<v8::Object> valueObject = value->ToObject();
@@ -651,34 +633,16 @@ std::string node_db::Query::tableName(v8::Local<v8::Value> value, bool escape) c
         v8::String::Utf8Value table(propertyValue);
         v8::String::Utf8Value alias(propertyName);
 
-        if (escape) {
-            buffer << this->connection->quoteTable;
-        }
-        buffer << *table;
-        if (escape) {
-            buffer << this->connection->quoteTable;
-        }
-        buffer << " AS ";
-        if (escape) {
-            buffer << this->connection->quoteTable;
-        }
-        buffer << *alias;
-        if (escape) {
-            buffer << this->connection->quoteTable;
-        }
+        buffer += (escape ? this->connection->escapeName(*table) : *table);
+        buffer += " AS ";
+        buffer += (escape ? this->connection->escapeName(*alias) : *alias);
     } else {
         v8::String::Utf8Value tables(value->ToString());
 
-        if (escape) {
-            buffer << this->connection->quoteTable;
-        }
-        buffer << *tables;
-        if (escape) {
-            buffer << this->connection->quoteTable;
-        }
+        buffer += (escape ? this->connection->escapeName(*tables) : *tables);
     }
 
-    return buffer.str();
+    return buffer;
 }
 
 v8::Handle<v8::Value> node_db::Query::addCondition(const v8::Arguments& args, const char* separator) {
@@ -1157,25 +1121,25 @@ std::string node_db::Query::value(v8::Local<v8::Value> value, bool inArray, bool
     if (value->IsArray()) {
         v8::Local<v8::Array> array = v8::Array::Cast(*value);
         if (!inArray) {
-            currentStream << "(";
+            currentStream << '(';
         }
         for (uint32_t i = 0, limiti = array->Length(); i < limiti; i++) {
             v8::Local<v8::Value> child = array->Get(i);
             if (child->IsArray() && i > 0) {
                 currentStream << "),(";
             } else if (i > 0) {
-                currentStream << ",";
+                currentStream << ',';
             }
 
             currentStream << this->value(child, true, escape);
         }
         if (!inArray) {
-            currentStream << ")";
+            currentStream << ')';
         }
     } else if (value->IsDate()) {
         currentStream << this->connection->quoteString << this->fromDate(v8::Date::Cast(*value)->NumberValue()) << this->connection->quoteString;
     } else if (value->IsBoolean()) {
-        currentStream << (value->IsTrue() ? "1" : "0");
+        currentStream << (value->IsTrue() ? '1' : '0');
     } else if (value->IsNumber()) {
         currentStream << value->ToNumber()->Value();
     } else if (value->IsString()) {
