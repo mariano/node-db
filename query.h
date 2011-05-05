@@ -63,6 +63,7 @@ class Query : public node::EventEmitter {
         static v8::Handle<v8::Value> Update(const v8::Arguments& args);
         static v8::Handle<v8::Value> Set(const v8::Arguments& args);
         static v8::Handle<v8::Value> Delete(const v8::Arguments& args);
+        static v8::Handle<v8::Value> Sql(const v8::Arguments& args);
         static v8::Handle<v8::Value> Execute(const v8::Arguments& args);
         static int eioExecute(eio_req* eioRequest);
         static int eioExecuteFinished(eio_req* eioRequest);

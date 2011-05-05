@@ -20,6 +20,7 @@ void node_db::Query::Init(v8::Handle<v8::Object> target, v8::Persistent<v8::Func
     NODE_ADD_PROTOTYPE_METHOD(constructorTemplate, "update", Update);
     NODE_ADD_PROTOTYPE_METHOD(constructorTemplate, "set", Set);
     NODE_ADD_PROTOTYPE_METHOD(constructorTemplate, "delete", Delete);
+    NODE_ADD_PROTOTYPE_METHOD(constructorTemplate, "sql", Sql);
     NODE_ADD_PROTOTYPE_METHOD(constructorTemplate, "execute", Execute);
 
     sySuccess = NODE_PERSISTENT_SYMBOL("success");
@@ -249,13 +250,30 @@ v8::Handle<v8::Value> node_db::Query::Limit(const v8::Arguments& args) {
 v8::Handle<v8::Value> node_db::Query::Add(const v8::Arguments& args) {
     v8::HandleScope scope;
 
-    ARG_CHECK_STRING(0, sql);
+    node_db::Query* innerQuery = NULL;
+
+    if (args.Length() > 0 && args[0]->IsObject()) {
+        v8::Local<v8::Object> object = args[0]->ToObject();
+        v8::Handle<v8::String> key = v8::String::New("sql");
+        if (!object->Has(key) || !object->Get(key)->IsFunction()) {
+            ARG_CHECK_STRING(0, sql);
+        }
+
+        innerQuery = node::ObjectWrap::Unwrap<node_db::Query>(object);
+        assert(innerQuery);
+    } else {
+        ARG_CHECK_STRING(0, sql);
+    }
 
     node_db::Query *query = node::ObjectWrap::Unwrap<node_db::Query>(args.This());
     assert(query);
 
-    v8::String::Utf8Value sql(args[0]->ToString());
-    query->sql << " " << *sql;
+    if (innerQuery != NULL) {
+        query->sql << innerQuery->sql.str();
+    } else {
+        v8::String::Utf8Value sql(args[0]->ToString());
+        query->sql << *sql;
+    }
 
     return scope.Close(args.This());
 }
@@ -483,6 +501,15 @@ v8::Handle<v8::Value> node_db::Query::Set(const v8::Arguments& args) {
     }
 
     return scope.Close(args.This());
+}
+
+v8::Handle<v8::Value> node_db::Query::Sql(const v8::Arguments& args) {
+    v8::HandleScope scope;
+
+    node_db::Query *query = node::ObjectWrap::Unwrap<node_db::Query>(args.This());
+    assert(query);
+
+    return scope.Close(v8::String::New(query->sql.str().c_str()));
 }
 
 v8::Handle<v8::Value> node_db::Query::Execute(const v8::Arguments& args) {
@@ -1118,7 +1145,9 @@ std::string node_db::Query::parseQuery(const std::string& query, v8::Array* valu
 std::string node_db::Query::value(v8::Local<v8::Value> value, bool inArray, bool escape) const throw(node_db::Exception&) {
     std::ostringstream currentStream;
 
-    if (value->IsArray()) {
+    if (value->IsNull()) {
+        currentStream << "NULL";
+    } else if (value->IsArray()) {
         v8::Local<v8::Array> array = v8::Array::Cast(*value);
         if (!inArray) {
             currentStream << '(';
@@ -1138,6 +1167,22 @@ std::string node_db::Query::value(v8::Local<v8::Value> value, bool inArray, bool
         }
     } else if (value->IsDate()) {
         currentStream << this->connection->quoteString << this->fromDate(v8::Date::Cast(*value)->NumberValue()) << this->connection->quoteString;
+    } else if (value->IsObject()) {
+        v8::Local<v8::Object> object = value->ToObject();
+        v8::Handle<v8::String> key = v8::String::New("sql");
+        if (!object->Has(key) || !object->Get(key)->IsFunction()) {
+            throw node_db::Exception("Objects can't be converted to a SQL value");
+        }
+
+        node_db::Query *query = node::ObjectWrap::Unwrap<node_db::Query>(object);
+        assert(query);
+        if (escape) {
+            currentStream << "(";
+        }
+        currentStream << query->sql.str();
+        if (escape) {
+            currentStream << ")";
+        }
     } else if (value->IsBoolean()) {
         currentStream << (value->IsTrue() ? '1' : '0');
     } else if (value->IsNumber()) {
