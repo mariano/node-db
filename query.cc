@@ -388,7 +388,7 @@ v8::Handle<v8::Value> node_db::Query::Insert(const v8::Arguments& args) {
                     query->sql << "(";
                 }
 
-                for (uint32_t i=0; i < valuesLength; i++) {
+                for (uint32_t i = 0; i < valuesLength; i++) {
                     if (i > 0) {
                         query->sql << ",";
                     }

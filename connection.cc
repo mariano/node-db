@@ -58,19 +58,22 @@ bool node_db::Connection::isOpened() const {
 std::string node_db::Connection::escapeName(const std::string& string) const throw(Exception&) {
     std::string escaped;
     if (string.find_first_of('.') != string.npos) {
-        char* original = new char[string.size()+1];
-        strcpy(original, string.c_str());
-        char* token = strtok(original, ".");
-        while(token != NULL) {
+        char* original = reinterpret_cast<char*>(const_cast<char*>(string.c_str()));
+        char* token;
+        char* rest;
+        bool first = true;
+
+        while ((token = strtok_r(original, ".", &rest))) {
+            if (!first) {
+                escaped += '.';
+            } else {
+                first = false;
+            }
             escaped += this->quoteName;
             escaped += token;
             escaped += this->quoteName;
-            token = strtok(NULL, ".");
-            if (token != NULL) {
-                escaped += '.';
-            }
+            original = rest;
         }
-        delete [] original;
     } else {
         escaped = this->quoteName + string + this->quoteName;
     }
