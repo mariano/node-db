@@ -726,7 +726,7 @@ void node_db::Query::execute(execute_request_t* request) {
 
             request->columnCount = request->result->columnCount();
             while (request->result->hasNext()) {
-                uint64_t *columnLengths = request->result->columnLengths();
+                unsigned long* columnLengths = request->result->columnLengths();
                 const char** currentRow = request->result->next();
 
                 row_t* row = new row_t();
