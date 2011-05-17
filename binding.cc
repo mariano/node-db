@@ -25,8 +25,7 @@ void node_db::Binding::Init(v8::Handle<v8::Object> target, v8::Persistent<v8::Fu
     NODE_ADD_PROTOTYPE_METHOD(constructorTemplate, "disconnect", Disconnect);
     NODE_ADD_PROTOTYPE_METHOD(constructorTemplate, "isConnected", IsConnected);
     NODE_ADD_PROTOTYPE_METHOD(constructorTemplate, "escape", Escape);
-    NODE_ADD_PROTOTYPE_METHOD(constructorTemplate, "table", Table);
-    NODE_ADD_PROTOTYPE_METHOD(constructorTemplate, "field", Field);
+    NODE_ADD_PROTOTYPE_METHOD(constructorTemplate, "name", Name);
     NODE_ADD_PROTOTYPE_METHOD(constructorTemplate, "query", Query);
 
     syReady = NODE_PERSISTENT_SYMBOL("ready");
@@ -213,31 +212,10 @@ v8::Handle<v8::Value> node_db::Binding::Escape(const v8::Arguments& args) {
     return scope.Close(v8::String::New(escaped.c_str()));
 }
 
-v8::Handle<v8::Value> node_db::Binding::Table(const v8::Arguments& args) {
+v8::Handle<v8::Value> node_db::Binding::Name(const v8::Arguments& args) {
     v8::HandleScope scope;
 
     ARG_CHECK_STRING(0, table);
-
-    node_db::Binding* binding = node::ObjectWrap::Unwrap<node_db::Binding>(args.This());
-    assert(binding);
-
-    std::ostringstream escaped;
-
-    try {
-        v8::String::Utf8Value string(args[0]->ToString());
-        std::string unescaped(*string);
-        escaped << binding->connection->escapeName(unescaped);
-    } catch(const node_db::Exception& exception) {
-        THROW_EXCEPTION(exception.what())
-    }
-
-    return scope.Close(v8::String::New(escaped.str().c_str()));
-}
-
-v8::Handle<v8::Value> node_db::Binding::Field(const v8::Arguments& args) {
-    v8::HandleScope scope;
-
-    ARG_CHECK_STRING(0, field);
 
     node_db::Binding* binding = node::ObjectWrap::Unwrap<node_db::Binding>(args.This());
     assert(binding);

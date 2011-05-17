@@ -30,8 +30,7 @@ class Binding : public node::EventEmitter {
         static v8::Handle<v8::Value> Disconnect(const v8::Arguments& args);
         static v8::Handle<v8::Value> IsConnected(const v8::Arguments& args);
         static v8::Handle<v8::Value> Escape(const v8::Arguments& args);
-        static v8::Handle<v8::Value> Table(const v8::Arguments& args);
-        static v8::Handle<v8::Value> Field(const v8::Arguments& args);
+        static v8::Handle<v8::Value> Name(const v8::Arguments& args);
         static v8::Handle<v8::Value> Query(const v8::Arguments& args);
         static int eioConnect(eio_req* req);
         static void connect(connect_request_t* request);
