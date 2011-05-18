@@ -751,7 +751,7 @@ void node_db::Query::execute(execute_request_t* request) {
                         if (row->columns[i] == NULL) {
                             throw node_db::Exception("Could not create buffer for column");
                         }
-                        strncpy(row->columns[i], currentRow[i], row->columnLengths[i]);
+                        memcpy(row->columns[i], currentRow[i], row->columnLengths[i]);
                     } else {
                         row->columns[i] = NULL;
                     }

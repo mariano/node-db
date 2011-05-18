@@ -8,7 +8,6 @@
 #include <node_events.h>
 #include <algorithm>
 #include <cctype>
-#include <cstring>
 #include <string>
 #include <sstream>
 #include <vector>
