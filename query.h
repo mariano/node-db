@@ -66,8 +66,7 @@ class Query : public node::EventEmitter {
         static v8::Handle<v8::Value> Execute(const v8::Arguments& args);
         static int eioExecute(eio_req* eioRequest);
         static int eioExecuteFinished(eio_req* eioRequest);
-        void execute(execute_request_t* request);
-        void executeFinished(execute_request_t* request);
+        void executeAsync(execute_request_t* request);
         static void freeRequest(execute_request_t* request, bool freeAll = true);
         std::string fieldName(v8::Local<v8::Value> value) const throw(Exception&);
         std::string tableName(v8::Local<v8::Value> value, bool escape=true) const throw(Exception&);
