@@ -778,7 +778,6 @@ int node_db::Query::eioExecuteFinished(eio_req* eioRequest) {
         v8::Local<v8::Array> columns = v8::Array::New(request->columnCount);
         for (uint16_t j = 0; j < request->columnCount; j++) {
             node_db::Result::Column *currentColumn = request->result->column(j);
-            v8::Local<v8::Value> columnType;
 
             v8::Local<v8::Object> column = v8::Object::New();
             column->Set(v8::String::New("name"), v8::String::New(currentColumn->getName().c_str()));
@@ -834,7 +833,6 @@ void node_db::Query::executeAsync(execute_request_t* request) {
 
             for (uint16_t i = 0; i < request->columnCount; i++) {
                 node_db::Result::Column *currentColumn = request->result->column(i);
-                v8::Local<v8::Value> columnType;
 
                 v8::Local<v8::Object> column = v8::Object::New();
                 column->Set(v8::String::New("name"), v8::String::New(currentColumn->getName().c_str()));
