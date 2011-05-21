@@ -908,6 +908,8 @@ void node_db::Query::executeAsync(execute_request_t* request) {
             Query::freeRequest(request);
         }
     } catch(const node_db::Exception& exception) {
+        this->connection->unlock();
+
         Query::freeRequest(request, false);
 
         v8::Local<v8::Value> argv[1];
