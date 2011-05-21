@@ -6,9 +6,11 @@ node_db::Connection::Connection()
     port(3306),
     opened(false),
     quoteName('`') {
+    pthread_mutex_init(&(this->connectionLock), NULL);
 }
 
 node_db::Connection::~Connection() {
+    pthread_mutex_destroy(&(this->connectionLock));
 }
 
 std::string node_db::Connection::getHostname() const {
@@ -78,4 +80,12 @@ std::string node_db::Connection::escapeName(const std::string& string) const thr
         escaped = this->quoteName + string + this->quoteName;
     }
     return escaped;
+}
+
+void node_db::Connection::lock() {
+    pthread_mutex_lock(&(this->connectionLock));
+}
+
+void node_db::Connection::unlock() {
+    pthread_mutex_unlock(&(this->connectionLock));
 }

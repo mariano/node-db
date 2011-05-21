@@ -717,7 +717,10 @@ int node_db::Query::eioExecute(eio_req* eioRequest) {
     assert(request);
 
     try {
+        request->query->connection->lock();
         request->result = request->query->connection->query(request->query->sql.str());
+        request->query->connection->unlock();
+
         if (request->result != NULL) {
             request->rows = new std::vector<row_t*>();
             if (request->rows == NULL) {
@@ -761,6 +764,7 @@ int node_db::Query::eioExecute(eio_req* eioRequest) {
             }
         }
     } catch(const node_db::Exception& exception) {
+        request->query->connection->unlock();
         Query::freeRequest(request, false);
         request->error = exception.what();
     }

@@ -2,6 +2,7 @@
 #ifndef CONNECTION_H_
 #define CONNECTION_H_
 
+#include <pthread.h>
 #include <stdint.h>
 #include <cstring>
 #include <string>
@@ -31,7 +32,9 @@ class Connection {
         virtual void close() = 0;
         virtual std::string escape(const std::string& string) const throw(Exception&) = 0;
         virtual std::string version() const = 0;
-        virtual Result* query(const std::string& query) const throw(Exception&)  = 0;
+        virtual Result* query(const std::string& query) const throw(Exception&) = 0;
+        virtual void lock();
+        virtual void unlock();
 
     protected:
         std::string hostname;
@@ -41,6 +44,7 @@ class Connection {
         uint32_t port;
         bool opened;
         const char quoteName;
+        pthread_mutex_t connectionLock;
 };
 }
 
