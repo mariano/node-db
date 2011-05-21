@@ -104,7 +104,9 @@ v8::Handle<v8::Value> node_db::Query::From(const v8::Arguments& args) {
     v8::HandleScope scope;
 
     if (args.Length() > 0) {
-        if (args[0]->IsObject()) {
+        if (args[0]->IsArray()) {
+            ARG_CHECK_ARRAY(0, fields);
+        } else if (args[0]->IsObject()) {
             ARG_CHECK_OBJECT(0, tables);
         } else {
             ARG_CHECK_STRING(0, tables);
@@ -282,7 +284,9 @@ v8::Handle<v8::Value> node_db::Query::Delete(const v8::Arguments& args) {
     v8::HandleScope scope;
 
     if (args.Length() > 0) {
-        if (args[0]->IsObject()) {
+        if (args[0]->IsArray()) {
+            ARG_CHECK_ARRAY(0, tables);
+        } else if (args[0]->IsObject()) {
             ARG_CHECK_OBJECT(0, tables);
         } else {
             ARG_CHECK_STRING(0, tables);
@@ -411,7 +415,9 @@ v8::Handle<v8::Value> node_db::Query::Update(const v8::Arguments& args) {
     v8::HandleScope scope;
 
     if (args.Length() > 0) {
-        if (args[0]->IsObject()) {
+        if (args[0]->IsArray()) {
+            ARG_CHECK_ARRAY(0, tables);
+        } else if (args[0]->IsObject()) {
             ARG_CHECK_OBJECT(0, tables);
         } else {
             ARG_CHECK_STRING(0, tables);
@@ -641,7 +647,20 @@ std::string node_db::Query::fieldName(v8::Local<v8::Value> value) const throw(no
 std::string node_db::Query::tableName(v8::Local<v8::Value> value, bool escape) const throw(node_db::Exception&) {
     std::string buffer;
 
-    if (value->IsObject()) {
+    if (value->IsArray()) {
+        v8::Local<v8::Array> tables = v8::Array::Cast(*value);
+        if (tables->Length() == 0) {
+            throw node_db::Exception("No tables specified");
+        }
+
+        for (uint32_t i = 0, limiti = tables->Length(); i < limiti; i++) {
+            if (i > 0) {
+                buffer += ',';
+            }
+
+            buffer += this->tableName(tables->Get(i), escape);
+        }
+    } else if (value->IsObject()) {
         v8::Local<v8::Object> valueObject = value->ToObject();
         v8::Local<v8::Array> valueProperties = valueObject->GetPropertyNames();
         if (valueProperties->Length() == 0) {

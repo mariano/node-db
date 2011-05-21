@@ -305,7 +305,7 @@ exports.get = function(createDbClient) {
         },
         "from()": function(test) {
             var client = this.client, query = "";
-            test.expect(6);
+            test.expect(8);
 
             test.throws(
                 function () {
@@ -332,6 +332,12 @@ exports.get = function(createDbClient) {
 
             query = client.query().from({"users_alias": "users"}, false).sql();
             test.equal(" FROM users AS users_alias", query);
+
+            query = client.query().from(["users", "profiles"]).sql();
+            test.equal(" FROM `users`,`profiles`", query);
+
+            query = client.query().from(["users", "profiles"], false).sql();
+            test.equal(" FROM users,profiles", query);
 
             test.done();
         },
