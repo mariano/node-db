@@ -38,6 +38,7 @@ class Result {
         virtual Column* column(uint16_t i) const throw(std::out_of_range&) = 0;
         virtual uint64_t insertId() const = 0;
         virtual uint16_t columnCount() const = 0;
+        virtual uint64_t count() const throw(Exception&);
 };
 }
 

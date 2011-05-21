@@ -848,7 +848,12 @@ void node_db::Query::executeAsync(execute_request_t* request) {
             request->columnCount = request->result->columnCount();
 
             v8::Local<v8::Array> columns = v8::Array::New(request->columnCount);
-            v8::Local<v8::Array> rows = v8::Array::New();
+            v8::Local<v8::Array> rows;
+            try {
+                rows = v8::Array::New(request->result->count());
+            } catch(const node_db::Exception& exception) {
+                rows = v8::Array::New();
+            }
 
             for (uint16_t i = 0; i < request->columnCount; i++) {
                 node_db::Result::Column *currentColumn = request->result->column(i);
