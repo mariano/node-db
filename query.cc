@@ -847,7 +847,10 @@ int node_db::Query::eioExecuteFinished(eio_req* eioRequest) {
 
 void node_db::Query::executeAsync(execute_request_t* request) {
     try {
+        this->connection->lock();
         request->result = this->connection->query(this->sql.str());
+        this->connection->unlock();
+
         if (request->result != NULL) {
             request->columnCount = request->result->columnCount();
 
