@@ -737,7 +737,7 @@ int node_db::Query::eioExecute(eio_req* eioRequest) {
                     throw node_db::Exception("Could not create buffer for row");
                 }
 
-                row->columnLengths = new uint64_t[request->columnCount];
+                row->columnLengths = new unsigned long[request->columnCount];
                 if (row->columnLengths == NULL) {
                     throw node_db::Exception("Could not create buffer for column lengths");
                 }
@@ -876,7 +876,7 @@ void node_db::Query::executeAsync(execute_request_t* request) {
             uint64_t index = 0;
 
             while (request->result->hasNext()) {
-                row.columnLengths = request->result->columnLengths();
+                row.columnLengths = (unsigned long*) request->result->columnLengths();
                 row.columns = (char**) request->result->next();
 
                 v8::Local<v8::Object> jsRow = this->row(request->result, &row);
@@ -1075,7 +1075,7 @@ v8::Local<v8::Object> node_db::Query::row(node_db::Result* result, row_t* curren
 
         if (currentRow->columns[j] != NULL) {
             const char* currentValue = currentRow->columns[j];
-            uint64_t currentLength = currentRow->columnLengths[j];
+            unsigned long currentLength = currentRow->columnLengths[j];
             if (this->cast) {
                 node_db::Result::Column::type_t columnType = currentColumn->getType();
                 switch (columnType) {

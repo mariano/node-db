@@ -26,7 +26,7 @@ class Query : public node::EventEmitter {
     protected:
         struct row_t {
             char** columns;
-            uint64_t* columnLengths;
+            unsigned long* columnLengths;
         };
         struct execute_request_t {
             Query* query;
