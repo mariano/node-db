@@ -33,6 +33,7 @@ class Query : public node::EventEmitter {
             Result *result;
             const char* error;
             uint16_t columnCount;
+            bool buffered;
             std::vector<row_t*>* rows;
         };
         Connection* connection;

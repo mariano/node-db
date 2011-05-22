@@ -32,13 +32,14 @@ class Result {
 
         virtual ~Result();
         virtual bool hasNext() const = 0;
-        virtual const char** next() throw(Exception&) = 0;
+        virtual char** next() throw(Exception&) = 0;
         virtual unsigned long* columnLengths() throw(Exception&) = 0;
         virtual uint64_t index() const throw(std::out_of_range&) = 0;
         virtual Column* column(uint16_t i) const throw(std::out_of_range&) = 0;
         virtual uint64_t insertId() const = 0;
         virtual uint16_t columnCount() const = 0;
         virtual uint64_t count() const throw(Exception&);
+        virtual bool isBuffered() const throw() = 0;
 };
 }
 
