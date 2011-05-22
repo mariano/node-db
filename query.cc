@@ -707,13 +707,19 @@ int node_db::Query::eioExecuteFinished(eio_req* eioRequest) {
 
             argv[0] = rows;
             argv[1] = columns;
+        } else {
+            v8::Local<v8::Object> result = v8::Object::New();
+            result->Set(v8::String::New("id"), v8::Number::New(request->result->insertId()));
+            result->Set(v8::String::New("affected"), v8::Number::New(request->result->affectedCount()));
+            result->Set(v8::String::New("warning"), v8::Number::New(request->result->affectedCount()));
+            argv[0] = result;
         }
 
-        request->query->Emit(sySuccess, !isEmpty ? 2 : 0, argv);
+        request->query->Emit(sySuccess, !isEmpty ? 2 : 1, argv);
 
         if (request->query->cbSuccess != NULL && !request->query->cbSuccess->IsEmpty()) {
             v8::TryCatch tryCatch;
-            (*(request->query->cbSuccess))->Call(v8::Context::GetCurrent()->Global(), !isEmpty ? 2 : 0, argv);
+            (*(request->query->cbSuccess))->Call(v8::Context::GetCurrent()->Global(), !isEmpty ? 2 : 1, argv);
             if (tryCatch.HasCaught()) {
                 node::FatalException(tryCatch);
             }
@@ -792,13 +798,19 @@ void node_db::Query::executeAsync(execute_request_t* request) {
 
                 argv[0] = rows;
                 argv[1] = columns;
+            } else {
+                v8::Local<v8::Object> result = v8::Object::New();
+                result->Set(v8::String::New("id"), v8::Number::New(request->result->insertId()));
+                result->Set(v8::String::New("affected"), v8::Number::New(request->result->affectedCount()));
+                result->Set(v8::String::New("warning"), v8::Number::New(request->result->affectedCount()));
+                argv[0] = result;
             }
 
-            this->Emit(sySuccess, !isEmpty ? 2 : 0, argv);
+            this->Emit(sySuccess, !isEmpty ? 2 : 1, argv);
 
             if (this->cbSuccess != NULL && !this->cbSuccess->IsEmpty()) {
                 v8::TryCatch tryCatch;
-                (*(this->cbSuccess))->Call(v8::Context::GetCurrent()->Global(), !isEmpty ? 2 : 0, argv);
+                (*(this->cbSuccess))->Call(v8::Context::GetCurrent()->Global(), !isEmpty ? 2 : 1, argv);
                 if (tryCatch.HasCaught()) {
                     node::FatalException(tryCatch);
                 }
