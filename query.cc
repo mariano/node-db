@@ -802,7 +802,7 @@ void node_db::Query::executeAsync(execute_request_t* request) {
                 v8::Local<v8::Object> result = v8::Object::New();
                 result->Set(v8::String::New("id"), v8::Number::New(request->result->insertId()));
                 result->Set(v8::String::New("affected"), v8::Number::New(request->result->affectedCount()));
-                result->Set(v8::String::New("warning"), v8::Number::New(request->result->affectedCount()));
+                result->Set(v8::String::New("warning"), v8::Number::New(request->result->warningCount()));
                 argv[0] = result;
             }
 
