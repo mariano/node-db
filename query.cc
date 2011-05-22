@@ -611,13 +611,13 @@ int node_db::Query::eioExecute(eio_req* eioRequest) {
                     throw node_db::Exception("Could not create buffer for row");
                 }
 
+                row->columnLengths = new unsigned long[request->columnCount];
+                if (row->columnLengths == NULL) {
+                    throw node_db::Exception("Could not create buffer for column lengths");
+                }
+
                 if (request->buffered) {
                     row->columns = currentRow;
-
-                    row->columnLengths = new unsigned long[request->columnCount];
-                    if (row->columnLengths == NULL) {
-                        throw node_db::Exception("Could not create buffer for column lengths");
-                    }
 
                     for (uint16_t i = 0; i < request->columnCount; i++) {
                         row->columnLengths[i] = columnLengths[i];
