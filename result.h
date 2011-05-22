@@ -40,6 +40,7 @@ class Result {
         virtual uint16_t columnCount() const = 0;
         virtual uint64_t count() const throw(Exception&);
         virtual bool isBuffered() const throw() = 0;
+        virtual bool isEmpty() const throw() = 0;
 };
 }
 

@@ -528,7 +528,7 @@ exports.get = function(createDbClient) {
         },
         "insert()": function(test) {
             var client = this.client, query = "";
-            test.expect(7);
+            test.expect(8);
 
             query = client.query().
                 insert("users").
@@ -559,6 +559,11 @@ exports.get = function(createDbClient) {
                 insert("users", ["john", "john.doe@email.com"]).
                 sql();
             test.equal("INSERT INTO `users` VALUES ('john','john.doe@email.com')", query);
+
+            query = client.query().
+                insert("users", ["john", "john.doe@email.com", {value: 'NOW()', escape:false}]).
+                sql();
+            test.equal("INSERT INTO `users` VALUES ('john','john.doe@email.com',NOW())", query);
 
             query = client.query().
                 insert("users", [["john", "john.doe@email.com"],["jane", "jane.doe@email.com"]]).
