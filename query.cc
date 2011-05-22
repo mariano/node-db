@@ -14,6 +14,7 @@ void node_db::Query::Init(v8::Handle<v8::Object> target, v8::Persistent<v8::Func
     NODE_ADD_PROTOTYPE_METHOD(constructorTemplate, "where", Where);
     NODE_ADD_PROTOTYPE_METHOD(constructorTemplate, "and", And);
     NODE_ADD_PROTOTYPE_METHOD(constructorTemplate, "or", Or);
+    NODE_ADD_PROTOTYPE_METHOD(constructorTemplate, "order", Order);
     NODE_ADD_PROTOTYPE_METHOD(constructorTemplate, "limit", Limit);
     NODE_ADD_PROTOTYPE_METHOD(constructorTemplate, "add", Add);
     NODE_ADD_PROTOTYPE_METHOD(constructorTemplate, "insert", Insert);
@@ -222,6 +223,88 @@ v8::Handle<v8::Value> node_db::Query::Or(const v8::Arguments& args) {
     assert(query);
 
     return scope.Close(query->addCondition(args, "OR"));
+}
+
+v8::Handle<v8::Value> node_db::Query::Order(const v8::Arguments& args) {
+    v8::HandleScope scope;
+
+    if (args.Length() > 0 && args[0]->IsObject()) {
+        ARG_CHECK_OBJECT(0, fields);
+    } else {
+        ARG_CHECK_STRING(0, fields);
+    }
+
+    ARG_CHECK_OPTIONAL_BOOL(1, escape);
+
+    node_db::Query *query = node::ObjectWrap::Unwrap<node_db::Query>(args.This());
+    assert(query);
+
+    bool escape = true;
+    if (args.Length() > 1) {
+        escape = args[1]->IsTrue();
+    }
+
+    query->sql << " ORDER BY ";
+
+    if (args[0]->IsObject()) {
+        v8::Local<v8::Object> fields = args[0]->ToObject();
+        v8::Local<v8::Array> properties = fields->GetPropertyNames();
+        if (properties->Length() == 0) {
+            THROW_EXCEPTION("Non empty objects should be used for fields in order");
+        }
+
+        for (uint32_t i = 0, limiti = properties->Length(); i < limiti; i++) {
+            v8::Local<v8::Value> propertyName = properties->Get(i);
+            v8::String::Utf8Value fieldName(propertyName);
+            v8::Local<v8::Value> currentValue = fields->Get(propertyName);
+
+            if (i > 0) {
+                query->sql << ",";
+            }
+
+            bool innerEscape = escape;
+            v8::Local<v8::Value> order;
+            if (currentValue->IsObject()) {
+                v8::Local<v8::Object> currentObject = currentValue->ToObject();
+                v8::Local<v8::String> escapeKey = v8::String::New("escape");
+                v8::Local<v8::String> orderKey = v8::String::New("order");
+                v8::Local<v8::Value> optionValue;
+
+                if (!currentObject->Has(orderKey)) {
+                    THROW_EXCEPTION("The \"order\" option for the order field object must be specified");
+                }
+
+                order = currentObject->Get(orderKey);
+
+                if (currentObject->Has(escapeKey)) {
+                    optionValue = currentObject->Get(escapeKey);
+                    if (!optionValue->IsBoolean()) {
+                        THROW_EXCEPTION("Specify a valid boolean value for the \"escape\" option in the order field object");
+                    }
+                    innerEscape = optionValue->IsTrue();
+                }
+            } else {
+                order = currentValue;
+            }
+
+            query->sql << (innerEscape ? query->connection->escapeName(*fieldName) : *fieldName);
+            query->sql << " ";
+
+            if (order->IsBoolean()) {
+                query->sql << (order->IsTrue() ? "ASC" : "DESC");
+            } else if (order->IsString()) {
+                v8::String::Utf8Value currentOrder(order->ToString());
+                query->sql << *currentOrder;
+            } else {
+                THROW_EXCEPTION("Invalid value specified for \"order\" property in order field");
+            }
+        }
+    } else {
+        v8::String::Utf8Value sql(args[0]->ToString());
+        query->sql << *sql;
+    }
+
+    return scope.Close(args.This());
 }
 
 v8::Handle<v8::Value> node_db::Query::Limit(const v8::Arguments& args) {

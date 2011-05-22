@@ -57,6 +57,7 @@ class Query : public node::EventEmitter {
         static v8::Handle<v8::Value> Where(const v8::Arguments& args);
         static v8::Handle<v8::Value> And(const v8::Arguments& args);
         static v8::Handle<v8::Value> Or(const v8::Arguments& args);
+        static v8::Handle<v8::Value> Order(const v8::Arguments& args);
         static v8::Handle<v8::Value> Limit(const v8::Arguments& args);
         static v8::Handle<v8::Value> Add(const v8::Arguments& args);
         static v8::Handle<v8::Value> Insert(const v8::Arguments& args);

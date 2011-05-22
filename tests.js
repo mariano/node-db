@@ -454,8 +454,35 @@ exports.get = function(createDbClient) {
 
             test.done();
         },
+        "order()": function(test) {
+            var client = this.client, query = "";
+            test.expect(6);
+
+            test.throws(
+                function () {
+                    client.query().order();
+                },
+                "Argument \"fields\" is mandatory"
+            );
+
+            query = client.query().order("id ASC, time DESC").sql();
+            test.equal(" ORDER BY id ASC, time DESC", query);
+
+            query = client.query().order({ "id": true, "time": false }).sql();
+            test.equal(" ORDER BY `id` ASC,`time` DESC", query);
+
+            query = client.query().order({ "id": "asc", "time": "desc" }).sql();
+            test.equal(" ORDER BY `id` asc,`time` desc", query);
+
+            query = client.query().order({ "id": true, "time": false }, false).sql();
+            test.equal(" ORDER BY id ASC,time DESC", query);
+
+            query = client.query().order({ "id": true, "time": false, "CONCAT(first, ' ', last)": { order: false, escape: false } }).sql();
+            test.equal(" ORDER BY `id` ASC,`time` DESC,CONCAT(first, ' ', last) DESC", query);
+
+            test.done();
+        },
         "limit()": function(test) {
-            var client = this.client;
             var client = this.client, query = "";
             test.expect(4);
      
