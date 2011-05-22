@@ -528,7 +528,7 @@ exports.get = function(createDbClient) {
         },
         "insert()": function(test) {
             var client = this.client, query = "";
-            test.expect(6);
+            test.expect(7);
 
             query = client.query().
                 insert("users").
@@ -536,7 +536,7 @@ exports.get = function(createDbClient) {
             test.equal("INSERT INTO `users` ", query);
 
             query = client.query().
-                insert("users", ["name", "email"]).
+                insert("users", ["name", "email"], false).
                 sql();
             test.equal("INSERT INTO `users`(`name`,`email`) ", query);
 
@@ -556,7 +556,12 @@ exports.get = function(createDbClient) {
             test.equal("INSERT INTO `users`(`name`,`email`) VALUES ('john','john.doe@email.com'),('jane','jane.doe@email.com')", query);
 
             query = client.query().
-                insert("users", false, [["john", "john.doe@email.com"],["jane", "jane.doe@email.com"]]).
+                insert("users", ["john", "john.doe@email.com"]).
+                sql();
+            test.equal("INSERT INTO `users` VALUES ('john','john.doe@email.com')", query);
+
+            query = client.query().
+                insert("users", [["john", "john.doe@email.com"],["jane", "jane.doe@email.com"]]).
                 sql();
             test.equal("INSERT INTO `users` VALUES ('john','john.doe@email.com'),('jane','jane.doe@email.com')", query);
 
@@ -665,7 +670,7 @@ exports.get = function(createDbClient) {
             test.expect(1);
 
             query = client.query().
-                insert("profiles", ["name", "age", "created"]).
+                insert("profiles", ["name", "age", "created"], false).
                 select(["name", {"value": 32}, "created"]).
                 from("users").
                 join({"table": "profiles", "alias": "p", "conditions": "p.id=users.profile_id"}).

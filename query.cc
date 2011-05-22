@@ -319,8 +319,12 @@ v8::Handle<v8::Value> node_db::Query::Insert(const v8::Arguments& args) {
     v8::HandleScope scope;
     uint32_t argsLength = args.Length();
 
+    int fieldsIndex = -1, valuesIndex = -1;
+
     if (argsLength > 0) {
-        if (argsLength > 1) {
+        ARG_CHECK_STRING(0, table);
+
+        if (argsLength > 2) {
             if (args[1]->IsArray()) {
                 ARG_CHECK_ARRAY(1, fields);
             } else if (args[1]->IsObject()) {
@@ -328,11 +332,17 @@ v8::Handle<v8::Value> node_db::Query::Insert(const v8::Arguments& args) {
             } else if (!args[1]->IsFalse()) {
                 ARG_CHECK_STRING(1, fields);
             }
-        }
+            fieldsIndex = 1;
 
-        if (argsLength > 2) {
-            ARG_CHECK_ARRAY(2, values);
+            if (!args[2]->IsFalse()) {
+                valuesIndex = 2;
+                ARG_CHECK_ARRAY(2, values);
+            }
+
             ARG_CHECK_OPTIONAL_BOOL(3, escape);
+        } else if (argsLength > 1) {
+            ARG_CHECK_ARRAY(1, values);
+            valuesIndex = 1;
         }
     } else {
         ARG_CHECK_STRING(0, table);
@@ -353,10 +363,10 @@ v8::Handle<v8::Value> node_db::Query::Insert(const v8::Arguments& args) {
     }
 
     if (argsLength > 1) {
-        if (!args[1]->IsFalse()) {
+        if (fieldsIndex != -1) {
             query->sql << "(";
-            if (args[1]->IsArray()) {
-                v8::Local<v8::Array> fields = v8::Array::Cast(*args[1]);
+            if (args[fieldsIndex]->IsArray()) {
+                v8::Local<v8::Array> fields = v8::Array::Cast(*args[fieldsIndex]);
                 if (fields->Length() == 0) {
                     THROW_EXCEPTION("No fields specified in insert")
                 }
@@ -373,7 +383,7 @@ v8::Handle<v8::Value> node_db::Query::Insert(const v8::Arguments& args) {
                     }
                 }
             } else {
-                v8::String::Utf8Value fields(args[1]->ToString());
+                v8::String::Utf8Value fields(args[fieldsIndex]->ToString());
                 query->sql << *fields;
             }
             query->sql << ")";
@@ -381,8 +391,8 @@ v8::Handle<v8::Value> node_db::Query::Insert(const v8::Arguments& args) {
 
         query->sql << " ";
 
-        if (argsLength > 2) {
-            v8::Local<v8::Array> values = v8::Array::Cast(*args[2]);
+        if (valuesIndex != -1) {
+            v8::Local<v8::Array> values = v8::Array::Cast(*args[valuesIndex]);
             uint32_t valuesLength = values->Length();
             if (valuesLength > 0) {
                 bool multipleRecords = values->Get(0)->IsArray();
