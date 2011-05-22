@@ -490,30 +490,7 @@ v8::Handle<v8::Value> node_db::Query::Set(const v8::Arguments& args) {
 
         query->sql << (escape ? query->connection->escapeName(*fieldName) : *fieldName);
         query->sql << "=";
-
-        bool escape = true;
-        if (currentValue->IsObject() && !currentValue->IsArray() && !currentValue->IsFunction() && !currentValue->IsDate()) {
-            v8::Local<v8::Object> currentObject = currentValue->ToObject();
-            v8::Local<v8::String> escapeKey = v8::String::New("escape");
-            v8::Local<v8::String> valueKey = v8::String::New("value");
-            v8::Local<v8::Value> optionValue;
-
-            if (!currentObject->Has(valueKey)) {
-                throw node_db::Exception("The \"value\" option for the select field object must be specified");
-            }
-
-            if (currentObject->Has(escapeKey)) {
-                optionValue = currentObject->Get(escapeKey);
-                if (!optionValue->IsBoolean()) {
-                    throw node_db::Exception("Specify a valid boolean value for the \"escape\" option in the select field object");
-                }
-                escape = optionValue->IsTrue();
-            }
-
-            currentValue = currentObject->Get(valueKey);
-        }
-
-        query->sql << query->value(currentValue, false, escape);
+        query->sql << query->value(currentValue);
     }
 
     return scope.Close(args.This());
