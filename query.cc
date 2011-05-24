@@ -30,7 +30,7 @@ void node_db::Query::Init(v8::Handle<v8::Object> target, v8::Persistent<v8::Func
 }
 
 node_db::Query::Query(): node::EventEmitter(),
-    connection(NULL), async(true), cast(true), bufferText(false), cbStart(NULL), cbSuccess(NULL), cbFinish(NULL) {
+    connection(NULL), async(true), cast(true), bufferText(false), cbStart(NULL), cbExecute(NULL), cbFinish(NULL) {
 }
 
 node_db::Query::~Query() {
@@ -38,8 +38,8 @@ node_db::Query::~Query() {
     if (this->cbStart != NULL) {
         node::cb_destroy(this->cbStart);
     }
-    if (this->cbSuccess != NULL) {
-        node::cb_destroy(this->cbSuccess);
+    if (this->cbExecute != NULL) {
+        node::cb_destroy(this->cbExecute);
     }
     if (this->cbFinish != NULL) {
         node::cb_destroy(this->cbFinish);
@@ -731,7 +731,8 @@ int node_db::Query::eioExecuteFinished(eio_req* eioRequest) {
     assert(request);
 
     if (request->error == NULL && request->result != NULL) {
-        v8::Local<v8::Value> argv[2];
+        v8::Local<v8::Value> argv[3];
+        argv[0] = v8::Local<v8::Value>::New(v8::Null());
 
         bool isEmpty = request->result->isEmpty();
         if (!isEmpty) {
@@ -765,21 +766,21 @@ int node_db::Query::eioExecuteFinished(eio_req* eioRequest) {
                 columns->Set(j, column);
             }
 
-            argv[0] = rows;
-            argv[1] = columns;
+            argv[1] = rows;
+            argv[2] = columns;
         } else {
             v8::Local<v8::Object> result = v8::Object::New();
             result->Set(v8::String::New("id"), v8::Number::New(request->result->insertId()));
             result->Set(v8::String::New("affected"), v8::Number::New(request->result->affectedCount()));
             result->Set(v8::String::New("warning"), v8::Number::New(request->result->warningCount()));
-            argv[0] = result;
+            argv[1] = result;
         }
 
-        request->query->Emit(sySuccess, !isEmpty ? 2 : 1, argv);
+        request->query->Emit(sySuccess, !isEmpty ? 2 : 1, &argv[1]);
 
-        if (request->query->cbSuccess != NULL && !request->query->cbSuccess->IsEmpty()) {
+        if (request->query->cbExecute != NULL && !request->query->cbExecute->IsEmpty()) {
             v8::TryCatch tryCatch;
-            (*(request->query->cbSuccess))->Call(v8::Context::GetCurrent()->Global(), !isEmpty ? 2 : 1, argv);
+            (*(request->query->cbExecute))->Call(v8::Context::GetCurrent()->Global(), !isEmpty ? 3 : 2, argv);
             if (tryCatch.HasCaught()) {
                 node::FatalException(tryCatch);
             }
@@ -789,6 +790,14 @@ int node_db::Query::eioExecuteFinished(eio_req* eioRequest) {
         argv[0] = v8::String::New(request->error != NULL ? request->error : "(unknown error)");
 
         request->query->Emit(syError, 1, argv);
+
+        if (request->query->cbExecute != NULL && !request->query->cbExecute->IsEmpty()) {
+            v8::TryCatch tryCatch;
+            (*(request->query->cbExecute))->Call(v8::Context::GetCurrent()->Global(), 1, argv);
+            if (tryCatch.HasCaught()) {
+                node::FatalException(tryCatch);
+            }
+        }
     }
 
     if (request->query->cbFinish != NULL && !request->query->cbFinish->IsEmpty()) {
@@ -808,13 +817,16 @@ int node_db::Query::eioExecuteFinished(eio_req* eioRequest) {
 }
 
 void node_db::Query::executeAsync(execute_request_t* request) {
+    bool freeAll = true;
     try {
         this->connection->lock();
         request->result = this->connection->query(this->sql.str());
         this->connection->unlock();
 
         if (request->result != NULL) {
-            v8::Local<v8::Value> argv[2];
+            v8::Local<v8::Value> argv[3];
+            argv[0] = v8::Local<v8::Value>::New(v8::Null());
+
             bool isEmpty = request->result->isEmpty();
             if (!isEmpty) {
                 request->columnCount = request->result->columnCount();
@@ -856,38 +868,46 @@ void node_db::Query::executeAsync(execute_request_t* request) {
                     rows->Set(index++, jsRow);
                 }
 
-                argv[0] = rows;
-                argv[1] = columns;
+                argv[1] = rows;
+                argv[2] = columns;
             } else {
                 v8::Local<v8::Object> result = v8::Object::New();
                 result->Set(v8::String::New("id"), v8::Number::New(request->result->insertId()));
                 result->Set(v8::String::New("affected"), v8::Number::New(request->result->affectedCount()));
                 result->Set(v8::String::New("warning"), v8::Number::New(request->result->warningCount()));
-                argv[0] = result;
+                argv[1] = result;
             }
 
-            this->Emit(sySuccess, !isEmpty ? 2 : 1, argv);
+            this->Emit(sySuccess, !isEmpty ? 2 : 1, &argv[1]);
 
-            if (this->cbSuccess != NULL && !this->cbSuccess->IsEmpty()) {
+            if (this->cbExecute != NULL && !this->cbExecute->IsEmpty()) {
                 v8::TryCatch tryCatch;
-                (*(this->cbSuccess))->Call(v8::Context::GetCurrent()->Global(), !isEmpty ? 2 : 1, argv);
+                (*(this->cbExecute))->Call(v8::Context::GetCurrent()->Global(), !isEmpty ? 3 : 2, argv);
                 if (tryCatch.HasCaught()) {
                     node::FatalException(tryCatch);
                 }
             }
-
-            Query::freeRequest(request);
         }
     } catch(const node_db::Exception& exception) {
         this->connection->unlock();
-
-        Query::freeRequest(request, false);
 
         v8::Local<v8::Value> argv[1];
         argv[0] = v8::String::New(request->error != NULL ? exception.what() : "(unknown error)");
 
         this->Emit(syError, 1, argv);
+
+        if (this->cbExecute != NULL && !this->cbExecute->IsEmpty()) {
+            v8::TryCatch tryCatch;
+            (*(this->cbExecute))->Call(v8::Context::GetCurrent()->Global(), 1, argv);
+            if (tryCatch.HasCaught()) {
+                node::FatalException(tryCatch);
+            }
+        }
+
+        freeAll = false;
     }
+
+    Query::freeRequest(request, freeAll);
 }
 
 void node_db::Query::freeRequest(execute_request_t* request, bool freeAll) {
@@ -1032,7 +1052,7 @@ v8::Handle<v8::Value> node_db::Query::set(const v8::Arguments& args) {
     }
 
     if (callbackIndex >= 0) {
-        this->cbSuccess = node::cb_persist(args[callbackIndex]);
+        this->cbExecute = node::cb_persist(args[callbackIndex]);
     }
 
     return v8::Handle<v8::Value>();

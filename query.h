@@ -43,7 +43,7 @@ class Query : public node::EventEmitter {
         bool bufferText;
         v8::Persistent<v8::Array> values;
         v8::Persistent<v8::Function>* cbStart;
-        v8::Persistent<v8::Function>* cbSuccess;
+        v8::Persistent<v8::Function>* cbExecute;
         v8::Persistent<v8::Function>* cbFinish;
         static v8::Persistent<v8::String> syError;
         static v8::Persistent<v8::String> sySuccess;
