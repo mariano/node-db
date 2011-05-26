@@ -1,7 +1,7 @@
 # node-db: Common framework for building database bindings for Node.js #
 
 This module is the foundation for the database drivers that are part
-of [node-dB] [homepage]. If you are looking for the actual database
+of [node-db] [homepage]. If you are looking for the actual database
 drivers, try the [node-db homepage] [homepage].
 
 ## LICENSE ##
