@@ -1418,7 +1418,7 @@ std::string node_db::Query::value(v8::Local<v8::Value> value, bool inArray, bool
     return currentStream.str();
 }
 
-std::string node_db::Query::fromDate(const uint64_t timeStamp) const throw(node_db::Exception&) {
+std::string node_db::Query::fromDate(const double timeStamp) const throw(node_db::Exception&) {
     char* buffer = new char[20];
     if (buffer == NULL) {
         throw node_db::Exception("Can\'t create buffer to write parsed date");

@@ -81,7 +81,7 @@ class Query : public node::EventEmitter {
         static bool gmtDeltaLoaded;
         static int gmtDelta;
 
-        std::string fromDate(const uint64_t timeStamp) const throw(Exception&);
+        std::string fromDate(const double timeStamp) const throw(Exception&);
 };
 }
 
