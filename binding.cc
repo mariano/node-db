@@ -83,6 +83,7 @@ v8::Handle<v8::Value> node_db::Binding::Connect(const v8::Arguments& args) {
         THROW_EXCEPTION("Could not create EIO request")
     }
 
+    request->context = v8::Persistent<v8::Object>::New(args.This());
     request->binding = binding;
     request->error = NULL;
 
@@ -129,11 +130,13 @@ void node_db::Binding::connectFinished(connect_request_t* request) {
 
     if (request->binding->cbConnect != NULL && !request->binding->cbConnect->IsEmpty()) {
         v8::TryCatch tryCatch;
-        (*(request->binding->cbConnect))->Call(v8::Context::GetCurrent()->Global(), connected ? 2 : 1, argv);
+        (*(request->binding->cbConnect))->Call(request->context, connected ? 2 : 1, argv);
         if (tryCatch.HasCaught()) {
             node::FatalException(tryCatch);
         }
     }
+
+    request->context.Dispose();
 
     delete request;
 }

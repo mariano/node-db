@@ -17,6 +17,7 @@ class Binding : public node::EventEmitter {
 
     protected:
         struct connect_request_t {
+            v8::Persistent<v8::Object> context;
             Binding* binding;
             const char* error;
         };
