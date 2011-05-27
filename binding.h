@@ -36,7 +36,7 @@ class Binding : public node::EventEmitter {
         static void connect(connect_request_t* request);
         static void connectFinished(connect_request_t* request);
         static int eioConnectFinished(eio_req* eioRequest);
-        virtual v8::Handle<v8::Value> set(const v8::Arguments& args);
+        virtual v8::Handle<v8::Value> set(const v8::Local<v8::Object> options) = 0;
         virtual v8::Persistent<v8::Object> createQuery() const = 0;
 };
 }

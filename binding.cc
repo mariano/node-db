@@ -41,12 +41,14 @@ v8::Handle<v8::Value> node_db::Binding::Connect(const v8::Arguments& args) {
     bool async = true;
 
     if (args.Length() > 0) {
-        v8::Handle<v8::Value> set = binding->set(args);
+        ARG_CHECK_OBJECT(0, options);
+
+        v8::Local<v8::Object> options = args[0]->ToObject();
+
+        v8::Handle<v8::Value> set = binding->set(options);
         if (!set.IsEmpty()) {
             return scope.Close(set);
         }
-
-        v8::Local<v8::Object> options = args[0]->ToObject();
 
         ARG_CHECK_OBJECT_ATTR_OPTIONAL_BOOL(options, async);
 
@@ -73,47 +75,6 @@ v8::Handle<v8::Value> node_db::Binding::Connect(const v8::Arguments& args) {
     }
 
     return scope.Close(v8::Undefined());
-}
-
-v8::Handle<v8::Value> node_db::Binding::set(const v8::Arguments& args) {
-    assert(this->connection);
-
-    ARG_CHECK_OBJECT(0, options);
-
-    v8::Local<v8::Object> options = args[0]->ToObject();
-
-    ARG_CHECK_OBJECT_ATTR_OPTIONAL_STRING(options, hostname);
-    ARG_CHECK_OBJECT_ATTR_OPTIONAL_STRING(options, user);
-    ARG_CHECK_OBJECT_ATTR_OPTIONAL_STRING(options, password);
-    ARG_CHECK_OBJECT_ATTR_OPTIONAL_STRING(options, database);
-    ARG_CHECK_OBJECT_ATTR_OPTIONAL_UINT32(options, port);
-
-    v8::String::Utf8Value hostname(options->Get(hostname_key)->ToString());
-    v8::String::Utf8Value user(options->Get(user_key)->ToString());
-    v8::String::Utf8Value password(options->Get(password_key)->ToString());
-    v8::String::Utf8Value database(options->Get(database_key)->ToString());
-
-    if (options->Has(hostname_key)) {
-        this->connection->setHostname(*hostname);
-    }
-
-    if (options->Has(user_key)) {
-        this->connection->setUser(*user);
-    }
-
-    if (options->Has(password_key)) {
-        this->connection->setPassword(*password);
-    }
-
-    if (options->Has(database_key)) {
-        this->connection->setDatabase(*database);
-    }
-
-    if (options->Has(port_key)) {
-        this->connection->setPort(options->Get(port_key)->ToInt32()->Value());
-    }
-
-    return v8::Handle<v8::Value>();
 }
 
 void node_db::Binding::connect(connect_request_t* request) {
