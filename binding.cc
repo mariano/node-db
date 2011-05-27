@@ -4,10 +4,13 @@
 v8::Persistent<v8::String> node_db::Binding::syReady;
 v8::Persistent<v8::String> node_db::Binding::syError;
 
-node_db::Binding::Binding(): node::EventEmitter(), connection(NULL) {
+node_db::Binding::Binding(): node::EventEmitter(), connection(NULL), cbConnect(NULL) {
 }
 
 node_db::Binding::~Binding() {
+    if (this->cbConnect != NULL) {
+        node::cb_destroy(this->cbConnect);
+    }
 }
 
 void node_db::Binding::Init(v8::Handle<v8::Object> target, v8::Persistent<v8::FunctionTemplate> constructorTemplate) {
@@ -39,21 +42,39 @@ v8::Handle<v8::Value> node_db::Binding::Connect(const v8::Arguments& args) {
     assert(binding);
 
     bool async = true;
+    int optionsIndex = -1, callbackIndex = -1;
 
     if (args.Length() > 0) {
-        ARG_CHECK_OBJECT(0, options);
-
-        v8::Local<v8::Object> options = args[0]->ToObject();
-
-        v8::Handle<v8::Value> set = binding->set(options);
-        if (!set.IsEmpty()) {
-            return scope.Close(set);
+        if (args.Length() > 1) {
+            ARG_CHECK_OBJECT(0, options);
+            ARG_CHECK_FUNCTION(1, callback);
+            optionsIndex = 0;
+            callbackIndex = 1;
+        } else if (args[0]->IsFunction()) {
+            ARG_CHECK_FUNCTION(0, callback);
+            callbackIndex = 0;
+        } else {
+            ARG_CHECK_OBJECT(0, options);
+            optionsIndex = 0;
         }
 
-        ARG_CHECK_OBJECT_ATTR_OPTIONAL_BOOL(options, async);
+        if (optionsIndex >= 0) {
+            v8::Local<v8::Object> options = args[optionsIndex]->ToObject();
 
-        if (options->Has(async_key) && options->Get(async_key)->IsFalse()) {
-            async = false;
+            v8::Handle<v8::Value> set = binding->set(options);
+            if (!set.IsEmpty()) {
+                return scope.Close(set);
+            }
+
+            ARG_CHECK_OBJECT_ATTR_OPTIONAL_BOOL(options, async);
+
+            if (options->Has(async_key) && options->Get(async_key)->IsFalse()) {
+                async = false;
+            }
+        }
+
+        if (callbackIndex >= 0) {
+            binding->cbConnect = node::cb_persist(args[callbackIndex]);
         }
     }
 
@@ -87,6 +108,7 @@ void node_db::Binding::connect(connect_request_t* request) {
 
 void node_db::Binding::connectFinished(connect_request_t* request) {
     bool connected = request->binding->connection->isOpened();
+    v8::Local<v8::Value> argv[2];
 
     if (connected) {
         v8::Local<v8::Object> server = v8::Object::New();
@@ -95,15 +117,22 @@ void node_db::Binding::connectFinished(connect_request_t* request) {
         server->Set(v8::String::New("user"), v8::String::New(request->binding->connection->getUser().c_str()));
         server->Set(v8::String::New("database"), v8::String::New(request->binding->connection->getDatabase().c_str()));
 
-        v8::Local<v8::Value> argv[1];
-        argv[0] = server;
+        argv[0] = v8::Local<v8::Value>::New(v8::Null());
+        argv[1] = server;
 
-        request->binding->Emit(syReady, 1, argv);
+        request->binding->Emit(syReady, 1, &argv[1]);
     } else {
-        v8::Local<v8::Value> argv[1];
         argv[0] = v8::String::New(request->error != NULL ? request->error : "(unknown error)");
 
         request->binding->Emit(syError, 1, argv);
+    }
+
+    if (request->binding->cbConnect != NULL && !request->binding->cbConnect->IsEmpty()) {
+        v8::TryCatch tryCatch;
+        (*(request->binding->cbConnect))->Call(v8::Context::GetCurrent()->Global(), connected ? 2 : 1, argv);
+        if (tryCatch.HasCaught()) {
+            node::FatalException(tryCatch);
+        }
     }
 
     delete request;

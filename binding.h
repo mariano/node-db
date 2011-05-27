@@ -20,6 +20,7 @@ class Binding : public node::EventEmitter {
             Binding* binding;
             const char* error;
         };
+        v8::Persistent<v8::Function>* cbConnect;
         static v8::Persistent<v8::String> syReady;
         static v8::Persistent<v8::String> syError;
 
