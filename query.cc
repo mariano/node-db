@@ -1426,7 +1426,7 @@ std::string node_db::Query::fromDate(const double timeStamp) const throw(node_db
 
 
     struct tm timeinfo;
-    time_t rawtime = timeStamp / 1000;
+    time_t rawtime = (time_t) (timeStamp / 1000);
     if (!localtime_r(&rawtime, &timeinfo)) {
         throw node_db::Exception("Can't get local time");
     }
