@@ -31,11 +31,12 @@ exports.get = function(createDbClient) {
         },
         "name()": function(test) {
             var client = this.client;
-            test.expect(3);
+            test.expect(4);
 
             test.equal("`field`", client.name("field"));
             test.equal("`table`", client.name("table"));
             test.equal("`table`.`field`", client.name("table.field"));
+            test.equal("`table`.*", client.name("table.*"));
             
             test.done();
         }

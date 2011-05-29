@@ -71,9 +71,13 @@ std::string node_db::Connection::escapeName(const std::string& string) const thr
             } else {
                 first = false;
             }
-            escaped += this->quoteName;
-            escaped += token;
-            escaped += this->quoteName;
+            if (token[0] != '*') {
+                escaped += this->quoteName;
+                escaped += token;
+                escaped += this->quoteName;
+            } else {
+                escaped += token;
+            }
             original = rest;
         }
     } else {
