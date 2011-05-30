@@ -4,7 +4,7 @@
 node_db::Connection::Connection()
     :quoteString('\''),
     port(3306),
-    opened(false),
+    alive(false),
     quoteName('`') {
     pthread_mutex_init(&(this->connectionLock), NULL);
 }
@@ -53,8 +53,8 @@ void node_db::Connection::setPort(uint32_t port) {
     this->port = port;
 }
 
-bool node_db::Connection::isOpened() const {
-    return this->opened;
+bool node_db::Connection::isAlive() {
+    return this->alive;
 }
 
 std::string node_db::Connection::escapeName(const std::string& string) const throw(Exception&) {

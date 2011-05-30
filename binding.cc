@@ -108,7 +108,7 @@ void node_db::Binding::connect(connect_request_t* request) {
 }
 
 void node_db::Binding::connectFinished(connect_request_t* request) {
-    bool connected = request->binding->connection->isOpened();
+    bool connected = request->binding->connection->isAlive();
     v8::Local<v8::Value> argv[2];
 
     if (connected) {
@@ -181,7 +181,7 @@ v8::Handle<v8::Value> node_db::Binding::IsConnected(const v8::Arguments& args) {
     node_db::Binding* binding = node::ObjectWrap::Unwrap<node_db::Binding>(args.This());
     assert(binding);
 
-    return scope.Close(binding->connection->isOpened() ? v8::True() : v8::False());
+    return scope.Close(binding->connection->isAlive() ? v8::True() : v8::False());
 }
 
 v8::Handle<v8::Value> node_db::Binding::Escape(const v8::Arguments& args) {
