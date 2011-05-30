@@ -975,8 +975,6 @@ v8::Handle<v8::Value> node_db::Query::set(const v8::Arguments& args) {
             optionsIndex = 2;
         }
     } else if (args.Length() == 2) {
-        ARG_CHECK_STRING(0, query);
-        queryIndex = 0;
         if (args[1]->IsFunction()) {
             ARG_CHECK_FUNCTION(1, callback);
             callbackIndex = 1;
@@ -986,6 +984,14 @@ v8::Handle<v8::Value> node_db::Query::set(const v8::Arguments& args) {
         } else {
             ARG_CHECK_OBJECT(1, options);
             optionsIndex = 1;
+        }
+
+        if (args[0]->IsFunction() && callbackIndex == -1) {
+            ARG_CHECK_FUNCTION(0, callback);
+            callbackIndex = 0;
+        } else {
+            ARG_CHECK_STRING(0, query);
+            queryIndex = 0;
         }
     } else if (args.Length() == 1) {
         if (args[0]->IsString()) {
