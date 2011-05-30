@@ -181,7 +181,7 @@ v8::Handle<v8::Value> node_db::Binding::IsConnected(const v8::Arguments& args) {
     node_db::Binding* binding = node::ObjectWrap::Unwrap<node_db::Binding>(args.This());
     assert(binding);
 
-    return scope.Close(binding->connection->isAlive() ? v8::True() : v8::False());
+    return scope.Close(binding->connection->isAlive(true) ? v8::True() : v8::False());
 }
 
 v8::Handle<v8::Value> node_db::Binding::Escape(const v8::Arguments& args) {

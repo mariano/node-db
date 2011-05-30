@@ -53,7 +53,7 @@ void node_db::Connection::setPort(uint32_t port) {
     this->port = port;
 }
 
-bool node_db::Connection::isAlive() {
+bool node_db::Connection::isAlive(bool ping) {
     return this->alive;
 }
 

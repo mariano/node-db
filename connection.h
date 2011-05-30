@@ -26,13 +26,13 @@ class Connection {
         virtual void setDatabase(const std::string& database);
         virtual uint32_t getPort() const;
         virtual void setPort(uint32_t port);
-        virtual bool isAlive();
+        virtual bool isAlive(bool ping=false);
         virtual std::string escapeName(const std::string& string) const throw(Exception&);
         virtual void open() throw(Exception&) = 0;
         virtual void close() = 0;
         virtual std::string escape(const std::string& string) const throw(Exception&) = 0;
-        virtual std::string version() = 0;
-        virtual Result* query(const std::string& query) throw(Exception&) = 0;
+        virtual std::string version() const = 0;
+        virtual Result* query(const std::string& query) const throw(Exception&) = 0;
         virtual void lock();
         virtual void unlock();
 
