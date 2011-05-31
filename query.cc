@@ -638,6 +638,7 @@ v8::Handle<v8::Value> node_db::Query::Execute(const v8::Arguments& args) {
     query->sql.clear();
     query->sql << sql;
 
+    request->context = v8::Persistent<v8::Object>::New(args.This());
     request->query = query;
     request->buffered = false;
     request->result = NULL;
@@ -780,7 +781,7 @@ int node_db::Query::eioExecuteFinished(eio_req* eioRequest) {
 
         if (request->query->cbExecute != NULL && !request->query->cbExecute->IsEmpty()) {
             v8::TryCatch tryCatch;
-            (*(request->query->cbExecute))->Call(v8::Context::GetCurrent()->Global(), !isEmpty ? 3 : 2, argv);
+            (*(request->query->cbExecute))->Call(request->context, !isEmpty ? 3 : 2, argv);
             if (tryCatch.HasCaught()) {
                 node::FatalException(tryCatch);
             }
@@ -793,7 +794,7 @@ int node_db::Query::eioExecuteFinished(eio_req* eioRequest) {
 
         if (request->query->cbExecute != NULL && !request->query->cbExecute->IsEmpty()) {
             v8::TryCatch tryCatch;
-            (*(request->query->cbExecute))->Call(v8::Context::GetCurrent()->Global(), 1, argv);
+            (*(request->query->cbExecute))->Call(request->context, 1, argv);
             if (tryCatch.HasCaught()) {
                 node::FatalException(tryCatch);
             }
@@ -882,7 +883,7 @@ void node_db::Query::executeAsync(execute_request_t* request) {
 
             if (this->cbExecute != NULL && !this->cbExecute->IsEmpty()) {
                 v8::TryCatch tryCatch;
-                (*(this->cbExecute))->Call(v8::Context::GetCurrent()->Global(), !isEmpty ? 3 : 2, argv);
+                (*(this->cbExecute))->Call(request->context, !isEmpty ? 3 : 2, argv);
                 if (tryCatch.HasCaught()) {
                     node::FatalException(tryCatch);
                 }
@@ -898,7 +899,7 @@ void node_db::Query::executeAsync(execute_request_t* request) {
 
         if (this->cbExecute != NULL && !this->cbExecute->IsEmpty()) {
             v8::TryCatch tryCatch;
-            (*(this->cbExecute))->Call(v8::Context::GetCurrent()->Global(), 1, argv);
+            (*(this->cbExecute))->Call(request->context, 1, argv);
             if (tryCatch.HasCaught()) {
                 node::FatalException(tryCatch);
             }
@@ -933,6 +934,8 @@ void node_db::Query::freeRequest(execute_request_t* request, bool freeAll) {
         if (request->result != NULL) {
             delete request->result;
         }
+
+        request->context.Dispose();
 
         delete request;
     }

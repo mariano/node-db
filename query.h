@@ -29,6 +29,7 @@ class Query : public node::EventEmitter {
             unsigned long* columnLengths;
         };
         struct execute_request_t {
+            v8::Persistent<v8::Object> context;
             Query* query;
             Result *result;
             const char* error;
