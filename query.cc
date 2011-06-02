@@ -34,7 +34,10 @@ node_db::Query::Query(): node::EventEmitter(),
 }
 
 node_db::Query::~Query() {
-    this->values.Dispose();
+    for (std::vector< v8::Persistent<v8::Value> >::iterator iterator = this->values.begin(), end = this->values.end(); iterator != end; ++iterator) {
+        iterator->Dispose();
+    }
+
     if (this->cbStart != NULL) {
         node::cb_destroy(this->cbStart);
     }
@@ -181,15 +184,11 @@ v8::Handle<v8::Value> node_db::Query::Join(const v8::Arguments& args) {
     if (join->Has(conditions_key)) {
         v8::String::Utf8Value conditions(join->Get(conditions_key)->ToObject());
         std::string currentConditions = *conditions;
-        v8::Local<v8::Array> currentValues;
         if (args.Length() > 1) {
-            currentValues = v8::Array::Cast(*args[1]);
-        }
-
-        try {
-            currentConditions = query->parseQuery(currentConditions, *currentValues);
-        } catch(const node_db::Exception& exception) {
-            THROW_EXCEPTION(exception.what())
+            v8::Local<v8::Array> currentValues = v8::Array::Cast(*args[1]);
+            for (uint32_t i = 0, limiti = currentValues->Length(); i < limiti; i++) {
+                query->values.push_back(v8::Persistent<v8::Value>::New(currentValues->Get(i)));
+            }
         }
 
         query->sql << " ON (" << currentConditions << ")";
@@ -601,10 +600,10 @@ v8::Handle<v8::Value> node_db::Query::Execute(const v8::Arguments& args) {
         }
     }
 
-    std::string sql = query->sql.str();
+    std::string sql;
 
     try {
-        sql = query->parseQuery(sql, *(query->values));
+        sql = query->parseQuery();
     } catch(const node_db::Exception& exception) {
         THROW_EXCEPTION(exception.what())
     }
@@ -662,7 +661,7 @@ int node_db::Query::eioExecute(eio_req* eioRequest) {
 
     try {
         request->query->connection->lock();
-        request->result = request->query->connection->query(request->query->sql.str());
+        request->result = request->query->execute();
         request->query->connection->unlock();
 
         if (!request->result->isEmpty() && request->result != NULL) {
@@ -821,7 +820,7 @@ void node_db::Query::executeAsync(execute_request_t* request) {
     bool freeAll = true;
     try {
         this->connection->lock();
-        request->result = this->connection->query(this->sql.str());
+        request->result = this->execute();
         this->connection->unlock();
 
         if (request->result != NULL) {
@@ -855,7 +854,7 @@ void node_db::Query::executeAsync(execute_request_t* request) {
 
                 while (request->result->hasNext()) {
                     row.columnLengths = (unsigned long*) request->result->columnLengths();
-                    row.columns = (char**) request->result->next();
+                    row.columns = reinterpret_cast<char**>(request->result->next());
 
                     v8::Local<v8::Object> jsRow = this->row(request->result, &row);
                     v8::Local<v8::Value> eachArgv[3];
@@ -909,6 +908,10 @@ void node_db::Query::executeAsync(execute_request_t* request) {
     }
 
     Query::freeRequest(request, freeAll);
+}
+
+node_db::Result* node_db::Query::execute() const throw(node_db::Exception&) {
+    return this->connection->query(this->sql.str());
 }
 
 void node_db::Query::freeRequest(execute_request_t* request, bool freeAll) {
@@ -1057,7 +1060,9 @@ v8::Handle<v8::Value> node_db::Query::set(const v8::Arguments& args) {
 
     if (valuesIndex >= 0) {
         v8::Local<v8::Array> values = v8::Array::Cast(*args[valuesIndex]);
-        this->values = v8::Persistent<v8::Array>::New(values);
+        for (uint32_t i = 0, limiti = values->Length(); i < limiti; i++) {
+            this->values.push_back(v8::Persistent<v8::Value>::New(values->Get(i)));
+        }
     }
 
     if (callbackIndex >= 0) {
@@ -1178,15 +1183,11 @@ v8::Handle<v8::Value> node_db::Query::addCondition(const v8::Arguments& args, co
 
     v8::String::Utf8Value conditions(args[0]->ToString());
     std::string currentConditions = *conditions;
-    v8::Local<v8::Array> currentValues;
     if (args.Length() > 1) {
-        currentValues = v8::Array::Cast(*args[1]);
-    }
-
-    try {
-        currentConditions = this->parseQuery(currentConditions, *currentValues);
-    } catch(const node_db::Exception& exception) {
-        THROW_EXCEPTION(exception.what())
+        v8::Local<v8::Array> currentValues = v8::Array::Cast(*args[1]);
+        for (uint32_t i = 0, limiti = currentValues->Length(); i < limiti; i++) {
+            this->values.push_back(v8::Persistent<v8::Value>::New(currentValues->Get(i)));
+        }
     }
 
     this->sql << " " << separator << " ";
@@ -1313,18 +1314,20 @@ v8::Local<v8::Object> node_db::Query::row(node_db::Result* result, row_t* curren
     return row;
 }
 
-std::string node_db::Query::parseQuery(const std::string& query, v8::Array* values) const throw(node_db::Exception&) {
-    std::string parsed(query);
+std::vector<std::string::size_type> node_db::Query::placeholders(std::string* parsed) const throw(node_db::Exception&) {
+    std::string query = this->sql.str();
     std::vector<std::string::size_type> positions;
     char quote = 0;
     bool escaped = false;
     uint32_t delta = 0;
 
+    *parsed = query;
+
     for (std::string::size_type i = 0, limiti = query.length(); i < limiti; i++) {
         char currentChar = query[i];
         if (escaped) {
             if (currentChar == '?') {
-                parsed.replace(i - 1 - delta, 1, "");
+                parsed->replace(i - 1 - delta, 1, "");
                 delta++;
             }
             escaped = false;
@@ -1339,15 +1342,20 @@ std::string node_db::Query::parseQuery(const std::string& query, v8::Array* valu
         }
     }
 
-    uint32_t valuesLength = values != NULL ? values->Length() : 0;
-    if (positions.size() != valuesLength) {
+    if (positions.size() != this->values.size()) {
         throw node_db::Exception("Wrong number of values to escape");
     }
 
-    uint32_t index = 0;
-    delta = 0;
+    return positions;
+}
+
+std::string node_db::Query::parseQuery() const throw(node_db::Exception&) {
+    std::string parsed;
+    std::vector<std::string::size_type> positions = this->placeholders(&parsed);
+
+    uint32_t index = 0, delta = 0;
     for (std::vector<std::string::size_type>::iterator iterator = positions.begin(), end = positions.end(); iterator != end; ++iterator, index++) {
-        std::string value = this->value(values->Get(index));
+        std::string value = this->value(*(this->values[index]));
         parsed.replace(*iterator + delta, 1, value);
         delta += (value.length() - 1);
     }

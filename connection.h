@@ -26,7 +26,7 @@ class Connection {
         virtual void setDatabase(const std::string& database);
         virtual uint32_t getPort() const;
         virtual void setPort(uint32_t port);
-        virtual bool isAlive(bool ping=false);
+        virtual bool isAlive(bool ping = false);
         virtual std::string escapeName(const std::string& string) const throw(Exception&);
         virtual void open() throw(Exception&) = 0;
         virtual void close() = 0;

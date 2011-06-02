@@ -364,23 +364,27 @@ exports.get = function(createDbClient) {
 
             test.throws(
                 function () {
-                    client.query().where("id = ?");
+                    client.query().where("id = ?").execute({ start: function (query) { return false; } });
                 },
                 "Wrong number of values to escape"
             );
 
             test.throws(
                 function () {
-                    client.query().where("id = ?", []);
+                    client.query().where("id = ?", []).execute({ start: function (query) { return false; } });
                 },
                 "Wrong number of values to escape"
             );
 
-            query = client.query().where("id=?", [ 1 ]).sql();
-            test.equal(" WHERE id=1", query);
+            query = client.query().where("id=?", [ 1 ]).execute({ start: function (query) {
+                test.equal(" WHERE id=1", query);
+                return false;
+            }});
 
-            query = client.query().where("(id=? OR name=?) AND created > ?", [ 1, "Janine O'Hara", new Date(2011,2,12,20,15,0) ]).sql();
-            test.equal(" WHERE (id=1 OR name='Janine O\\'Hara') AND created > '2011-03-12 20:15:00'", query);
+            query = client.query().where("(id=? OR name=?) AND created > ?", [ 1, "Janine O'Hara", new Date(2011,2,12,20,15,0) ]).execute({ start: function (query) {
+                test.equal(" WHERE (id=1 OR name='Janine O\\'Hara') AND created > '2011-03-12 20:15:00'", query);
+                return false;
+            }});
 
             query = client.query().where("1=1").and("2=2").sql();
             test.equal(" WHERE 1=1 AND 2=2", query);
@@ -423,7 +427,7 @@ exports.get = function(createDbClient) {
                         "table": "profiles",
                         "alias": "p",
                         "conditions": "p.id = u.profile_id"
-                    }, [ 1, new Date(2011, 2, 12, 19, 49, 0) ]);
+                    }, [ 1, new Date(2011, 2, 12, 19, 49, 0) ]).execute({ start: function (query) { return false; } });
                 },
                 "Wrong number of values to escape"
             );
@@ -435,8 +439,10 @@ exports.get = function(createDbClient) {
                 "conditions": "p.id = u.profile_id AND approved = ? AND created >= ?"
                 },
                 [ 1, new Date(2011, 2, 12, 19, 49, 0) ]
-            ).sql();
-            test.equal(" INNER JOIN `profiles` AS `p` ON (p.id = u.profile_id AND approved = 1 AND created >= '2011-03-12 19:49:00')", query);
+            ).execute({ start: function (query) {
+                test.equal(" INNER JOIN `profiles` AS `p` ON (p.id = u.profile_id AND approved = 1 AND created >= '2011-03-12 19:49:00')", query);
+                return false;
+            }});
 
             query = client.query().join({ 
                 "type": "left",
@@ -650,9 +656,10 @@ exports.get = function(createDbClient) {
                 join({"table": "profiles", "alias": "p", "conditions": "p.id=users.profile_id"}).
                 where("created > ?", [ new Date(2011,02,12,20,16,0) ]).
                 limit(10).
-                sql();
-
-            test.equal("SELECT * FROM `users` INNER JOIN `profiles` AS `p` ON (p.id=users.profile_id) WHERE created > '2011-03-12 20:16:00' LIMIT 10", query);
+                execute({ start: function (query) {
+                    test.equal("SELECT * FROM `users` INNER JOIN `profiles` AS `p` ON (p.id=users.profile_id) WHERE created > '2011-03-12 20:16:00' LIMIT 10", query);
+                    return false;
+                }});
 
             query = client.query().
                 select("*").
@@ -661,8 +668,10 @@ exports.get = function(createDbClient) {
                     select(["id"]).
                     from("profiles")
                 ]).
-                sql();
-            test.equal("SELECT * FROM `users` WHERE id IN (SELECT `id` FROM `profiles`)", query);
+                execute({ start: function (query) {
+                    test.equal("SELECT * FROM `users` WHERE id IN (SELECT `id` FROM `profiles`)", query);
+                    return false;
+                }});
 
             test.throws(
                 function () {
@@ -670,7 +679,7 @@ exports.get = function(createDbClient) {
                         select("*").
                         from("users").
                         where("id IN ?", [ { "test": "value" }]).
-                        sql();
+                        execute({ start: function (query) { return false; }});
                 },
                 "Objects can't be converted to a SQL value"
             );
@@ -685,16 +694,20 @@ exports.get = function(createDbClient) {
                 delete().
                 from("users").
                 where("created > ?", [ new Date(2011,02,12,20,16,0) ]).
-                sql();
-            test.equal("DELETE FROM `users` WHERE created > '2011-03-12 20:16:00'", query);
+                execute({ start: function (query) {
+                    test.equal("DELETE FROM `users` WHERE created > '2011-03-12 20:16:00'", query);
+                    return false;
+                }});
 
             query = client.query().
                 delete("users").
                 from("users").
                 join({"table": "profiles", "alias": "p", "conditions": "p.id=users.profile_id"}).
                 where("created > ?", [ new Date(2011,02,12,20,16,0) ]).
-                sql();
-            test.equal("DELETE `users` FROM `users` INNER JOIN `profiles` AS `p` ON (p.id=users.profile_id) WHERE created > '2011-03-12 20:16:00'", query);
+                execute({ start: function (query) {
+                    test.equal("DELETE `users` FROM `users` INNER JOIN `profiles` AS `p` ON (p.id=users.profile_id) WHERE created > '2011-03-12 20:16:00'", query);
+                    return false;
+                }});
 
             test.done();
         },
@@ -709,8 +722,10 @@ exports.get = function(createDbClient) {
                 join({"table": "profiles", "alias": "p", "conditions": "p.id=users.profile_id"}).
                 where("created > ?", [ new Date(2011,02,12,20,16,0) ]).
                 limit(10).
-                sql();
-            test.equal("INSERT INTO `profiles`(`name`,`age`,`created`) SELECT `name`,32 AS `value`,`created` FROM `users` INNER JOIN `profiles` AS `p` ON (p.id=users.profile_id) WHERE created > '2011-03-12 20:16:00' LIMIT 10", query);
+                execute({ start: function (query) {
+                    test.equal("INSERT INTO `profiles`(`name`,`age`,`created`) SELECT `name`,32 AS `value`,`created` FROM `users` INNER JOIN `profiles` AS `p` ON (p.id=users.profile_id) WHERE created > '2011-03-12 20:16:00' LIMIT 10", query);
+                    return false;
+                }});
 
             test.done();
         },
@@ -724,8 +739,10 @@ exports.get = function(createDbClient) {
                 set({ "name": "New Name" }).
                 where("created > ?", [ new Date(2011,02,12,20,16,0) ]).
                 limit(10).
-                sql();
-            test.equal("UPDATE `users` INNER JOIN `profiles` AS `p` ON (p.id=users.profile_id) SET `name`='New Name' WHERE created > '2011-03-12 20:16:00' LIMIT 10", query);
+                execute({ start: function (query) {
+                    test.equal("UPDATE `users` INNER JOIN `profiles` AS `p` ON (p.id=users.profile_id) SET `name`='New Name' WHERE created > '2011-03-12 20:16:00' LIMIT 10", query);
+                    return false;
+                }});
 
             test.done();
         }

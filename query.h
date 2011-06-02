@@ -39,10 +39,10 @@ class Query : public node::EventEmitter {
         };
         Connection* connection;
         std::ostringstream sql;
+        std::vector< v8::Persistent<v8::Value> > values;
         bool async;
         bool cast;
         bool bufferText;
-        v8::Persistent<v8::Array> values;
         v8::Persistent<v8::Function>* cbStart;
         v8::Persistent<v8::Function>* cbExecute;
         v8::Persistent<v8::Function>* cbFinish;
@@ -72,11 +72,14 @@ class Query : public node::EventEmitter {
         void executeAsync(execute_request_t* request);
         static void freeRequest(execute_request_t* request, bool freeAll = true);
         std::string fieldName(v8::Local<v8::Value> value) const throw(Exception&);
-        std::string tableName(v8::Local<v8::Value> value, bool escape=true) const throw(Exception&);
+        std::string tableName(v8::Local<v8::Value> value, bool escape = true) const throw(Exception&);
         v8::Handle<v8::Value> addCondition(const v8::Arguments& args, const char* separator);
         v8::Local<v8::Object> row(Result* result, row_t* currentRow) const;
-        std::string parseQuery(const std::string& query, v8::Array* values) const throw(Exception&);
+        virtual std::string parseQuery() const throw(Exception&);
+        virtual std::vector<std::string::size_type> placeholders(std::string* parsed) const throw(Exception&);
+        virtual Result* execute() const throw(Exception&);
         std::string value(v8::Local<v8::Value> value, bool inArray = false, bool escape = true) const throw(Exception&);
+
 
     private:
         static bool gmtDeltaLoaded;
