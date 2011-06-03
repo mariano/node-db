@@ -31,6 +31,7 @@ class Result {
         };
 
         virtual ~Result();
+        virtual void release() throw() = 0;
         virtual bool hasNext() const throw(Exception&) = 0;
         virtual char** next() throw(Exception&) = 0;
         virtual unsigned long* columnLengths() throw(Exception&) = 0;
