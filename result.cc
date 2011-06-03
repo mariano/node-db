@@ -22,3 +22,6 @@ uint16_t node_db::Result::warningCount() const throw(node_db::Exception&){
 
 node_db::Result::~Result() {
 }
+
+void node_db::Result::release() {
+}
