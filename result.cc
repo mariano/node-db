@@ -12,5 +12,13 @@ uint64_t node_db::Result::count() const throw(Exception&) {
     throw node_db::Exception("Not implemented");
 }
 
+uint64_t node_db::Result::insertId() const throw(node_db::Exception&) {
+    throw node_db::Exception("Not implemented");
+}
+
+uint16_t node_db::Result::warningCount() const throw(node_db::Exception&){
+    throw node_db::Exception("Not implemented");
+}
+
 node_db::Result::~Result() {
 }

@@ -43,7 +43,7 @@ class Connection {
         std::string database;
         uint32_t port;
         bool alive;
-        const char quoteName;
+        char quoteName;
         pthread_mutex_t connectionLock;
 };
 }
