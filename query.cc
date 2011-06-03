@@ -715,7 +715,9 @@ int node_db::Query::eioExecute(eio_req* eioRequest) {
                 request->rows->push_back(row);
             }
 
-            request->result->release();
+            if (!request->result->isBuffered()) {
+                request->result->release();
+            }
         }
     } catch(const node_db::Exception& exception) {
         request->query->connection->unlock();
@@ -870,7 +872,9 @@ void node_db::Query::executeAsync(execute_request_t* request) {
                     rows->Set(index++, jsRow);
                 }
 
-                request->result->release();
+                if (!request->result->isBuffered()) {
+                    request->result->release();
+                }
 
                 argv[1] = rows;
                 argv[2] = columns;
