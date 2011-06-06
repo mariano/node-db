@@ -1280,7 +1280,7 @@ v8::Local<v8::Object> node_db::Query::row(node_db::Result* result, row_t* curren
                             timeinfo.tm_min = min;
                             timeinfo.tm_sec = sec;
 
-                            value = v8::Date::New(static_cast<uint64_t>((mktime(&timeinfo) + Query::gmtDelta) * 1000));
+                            value = v8::Date::New(static_cast<double>(mktime(&timeinfo) + Query::gmtDelta) * 1000);
                         } catch(const node_db::Exception&) {
                             value = v8::String::New(currentValue, currentLength);
                         }
