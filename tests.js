@@ -256,7 +256,7 @@ exports.get = function(createDbClient, quoteName) {
         },
         "select()": function(test) {
             var client = this.client, query = "";
-            test.expect(11);
+            test.expect(9);
 
             test.throws(
                 function () {
@@ -300,6 +300,12 @@ exports.get = function(createDbClient, quoteName) {
 
             query = client.query().select(["id", {"total": "COUNT(*)"}]).sql();
             test.equal("SELECT " + quoteName + "id" + quoteName + ",COUNT(*) AS " + quoteName + "total" + quoteName + "", query);
+
+            test.done();
+        },
+        "select values": function(test) {
+            var client = this.client, query = "";
+            test.expect(2);
 
             query = client.query().select(["id", "user", {"string": {"escape": true, "value": "Hello 'world'"}}]).sql();
             test.equal("SELECT " + quoteName + "id" + quoteName + "," + quoteName + "user" + quoteName + ",'Hello \\'world\\'' AS " + quoteName + "string" + quoteName + "", query);
