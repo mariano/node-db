@@ -1434,7 +1434,11 @@ std::string node_db::Query::value(v8::Local<v8::Value> value, bool inArray, bool
         v8::String::Utf8Value currentString(value->ToString());
         std::string string = *currentString;
         if (escape) {
-            currentStream << this->connection->quoteString << this->connection->escape(string) << this->connection->quoteString;
+            try {
+                currentStream << this->connection->quoteString << this->connection->escape(string) << this->connection->quoteString;
+            } catch(node_db::Exception& exception) {
+                currentStream << this->connection->quoteString << string << this->connection->quoteString;
+            }
         } else {
             currentStream << string;
         }
