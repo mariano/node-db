@@ -8,8 +8,13 @@ try {
 }
 var testCase = nodeunit.testCase;
 
-exports.get = function(createDbClient) {
+exports.get = function(createDbClient, quoteName) {
     var exports = {};
+
+    if (!quoteName) {
+        quoteName = '`';
+    }
+
     exports["Client"] = testCase({
         "setUp": function(callback) {
             this.client = createDbClient();
@@ -33,10 +38,10 @@ exports.get = function(createDbClient) {
             var client = this.client;
             test.expect(4);
 
-            test.equal("`field`", client.name("field"));
-            test.equal("`table`", client.name("table"));
-            test.equal("`table`.`field`", client.name("table.field"));
-            test.equal("`table`.*", client.name("table.*"));
+            test.equal(quoteName + "field" + quoteName, client.name("field"));
+            test.equal(quoteName + "table" + quoteName, client.name("table"));
+            test.equal(quoteName + "table" + quoteName + "." + quoteName + "field" + quoteName, client.name("table.field"));
+            test.equal(quoteName + "table" + quoteName + ".*", client.name("table.*"));
             
             test.done();
         }
@@ -285,22 +290,22 @@ exports.get = function(createDbClient) {
             );
 
             query = client.query().select(["id", "user", {"number": 1}, {"date": new Date(1978,6,13,18,30,0)}]).sql();
-            test.equal("SELECT `id`,`user`,1 AS `number`,'1978-07-13 18:30:00' AS `date`", query);
+            test.equal("SELECT " + quoteName + "id" + quoteName + "," + quoteName + "user" + quoteName + ",1 AS " + quoteName + "number" + quoteName + ",'1978-07-13 18:30:00' AS " + quoteName + "date" + quoteName, query);
 
             query = client.query().select(["id", "user", {"number": 1, "date": new Date(1978,6,13,18,30,0)}]).sql();
-            test.equal("SELECT `id`,`user`,1 AS `number`,'1978-07-13 18:30:00' AS `date`", query);
+            test.equal("SELECT " + quoteName + "id" + quoteName + "," + quoteName + "user" + quoteName + ",1 AS " + quoteName + "number" + quoteName + ",'1978-07-13 18:30:00' AS " + quoteName + "date" + quoteName + "", query);
 
             query = client.query().select({"total": "COUNT(*)"}).sql();
-            test.equal("SELECT COUNT(*) AS `total`", query);
+            test.equal("SELECT COUNT(*) AS " + quoteName + "total" + quoteName + "", query);
 
             query = client.query().select(["id", {"total": "COUNT(*)"}]).sql();
-            test.equal("SELECT `id`,COUNT(*) AS `total`", query);
+            test.equal("SELECT " + quoteName + "id" + quoteName + ",COUNT(*) AS " + quoteName + "total" + quoteName + "", query);
 
             query = client.query().select(["id", "user", {"string": {"escape": true, "value": "Hello 'world'"}}]).sql();
-            test.equal("SELECT `id`,`user`,'Hello \\'world\\'' AS `string`", query);
+            test.equal("SELECT " + quoteName + "id" + quoteName + "," + quoteName + "user" + quoteName + ",'Hello \\'world\\'' AS " + quoteName + "string" + quoteName + "", query);
 
             query = client.query().select({"string": { "escape": true, "value": "Hello 'world'"}}).sql();
-            test.equal("SELECT 'Hello \\'world\\'' AS `string`", query);
+            test.equal("SELECT 'Hello \\'world\\'' AS " + quoteName + "string" + quoteName + "", query);
 
             test.done();
         },
@@ -316,7 +321,7 @@ exports.get = function(createDbClient) {
             );
 
             query = client.query().from("users").sql();
-            test.equal(" FROM `users`", query);
+            test.equal(" FROM " + quoteName + "users" + quoteName + "", query);
 
             query = client.query().from("users, profiles", false).sql();
             test.equal(" FROM users, profiles", query);
@@ -329,13 +334,13 @@ exports.get = function(createDbClient) {
             );
 
             query = client.query().from({"users_alias": "users"}).sql();
-            test.equal(" FROM `users` AS `users_alias`", query);
+            test.equal(" FROM " + quoteName + "users" + quoteName + " AS " + quoteName + "users_alias" + quoteName + "", query);
 
             query = client.query().from({"users_alias": "users"}, false).sql();
             test.equal(" FROM users AS users_alias", query);
 
             query = client.query().from(["users", "profiles"]).sql();
-            test.equal(" FROM `users`,`profiles`", query);
+            test.equal(" FROM " + quoteName + "users" + quoteName + "," + quoteName + "profiles" + quoteName + "", query);
 
             query = client.query().from(["users", "profiles"], false).sql();
             test.equal(" FROM users,profiles", query);
@@ -406,20 +411,20 @@ exports.get = function(createDbClient) {
             );
 
             query = client.query().join({ "table": "profiles" }).sql();
-            test.equal(" INNER JOIN `profiles`", query);
+            test.equal(" INNER JOIN " + quoteName + "profiles" + quoteName + "", query);
 
             query = client.query().join({ 
                 "table": "profiles",
                 "alias": "p" 
             }).sql();
-            test.equal(" INNER JOIN `profiles` AS `p`", query);
+            test.equal(" INNER JOIN " + quoteName + "profiles" + quoteName + " AS " + quoteName + "p" + quoteName + "", query);
 
             query = client.query().join({ 
                 "table": "profiles",
                 "alias": "p",
                 "conditions": "p.id = u.profile_id"
             }).sql();
-            test.equal(" INNER JOIN `profiles` AS `p` ON (p.id = u.profile_id)", query);
+            test.equal(" INNER JOIN " + quoteName + "profiles" + quoteName + " AS " + quoteName + "p" + quoteName + " ON (p.id = u.profile_id)", query);
 
             test.throws(
                 function () {
@@ -440,7 +445,7 @@ exports.get = function(createDbClient) {
                 },
                 [ 1, new Date(2011, 2, 12, 19, 49, 0) ]
             ).execute({ start: function (query) {
-                test.equal(" INNER JOIN `profiles` AS `p` ON (p.id = u.profile_id AND approved = 1 AND created >= '2011-03-12 19:49:00')", query);
+                test.equal(" INNER JOIN " + quoteName + "profiles" + quoteName + " AS " + quoteName + "p" + quoteName + " ON (p.id = u.profile_id AND approved = 1 AND created >= '2011-03-12 19:49:00')", query);
                 return false;
             }});
 
@@ -476,16 +481,16 @@ exports.get = function(createDbClient) {
             test.equal(" ORDER BY id ASC, time DESC", query);
 
             query = client.query().order({ "id": true, "time": false }).sql();
-            test.equal(" ORDER BY `id` ASC,`time` DESC", query);
+            test.equal(" ORDER BY " + quoteName + "id" + quoteName + " ASC," + quoteName + "time" + quoteName + " DESC", query);
 
             query = client.query().order({ "id": "asc", "time": "desc" }).sql();
-            test.equal(" ORDER BY `id` asc,`time` desc", query);
+            test.equal(" ORDER BY " + quoteName + "id" + quoteName + " asc," + quoteName + "time" + quoteName + " desc", query);
 
             query = client.query().order({ "id": true, "time": false }, false).sql();
             test.equal(" ORDER BY id ASC,time DESC", query);
 
             query = client.query().order({ "id": true, "time": false, "CONCAT(first, ' ', last)": { order: false, escape: false } }).sql();
-            test.equal(" ORDER BY `id` ASC,`time` DESC,CONCAT(first, ' ', last) DESC", query);
+            test.equal(" ORDER BY " + quoteName + "id" + quoteName + " ASC," + quoteName + "time" + quoteName + " DESC,CONCAT(first, ' ', last) DESC", query);
 
             test.done();
         },
@@ -535,7 +540,7 @@ exports.get = function(createDbClient) {
             query = client.query().add("(").add(
                 client.query().select("*").from("users")
             ).add(")").sql();
-            test.equal("(SELECT * FROM `users`)", query);
+            test.equal("(SELECT * FROM " + quoteName + "users" + quoteName + ")", query);
 
             test.done();
         },
@@ -551,12 +556,12 @@ exports.get = function(createDbClient) {
             query = client.query().
                 delete("users").
                 sql();
-            test.equal("DELETE `users`", query);
+            test.equal("DELETE " + quoteName + "users" + quoteName + "", query);
 
             query = client.query().
                 delete({"users_alias": "users"}).
                 sql();
-            test.equal("DELETE `users` AS `users_alias`", query);
+            test.equal("DELETE " + quoteName + "users" + quoteName + " AS " + quoteName + "users_alias" + quoteName + "", query);
 
             test.done();
         },
@@ -567,42 +572,42 @@ exports.get = function(createDbClient) {
             query = client.query().
                 insert("users").
                 sql();
-            test.equal("INSERT INTO `users` ", query);
+            test.equal("INSERT INTO " + quoteName + "users" + quoteName + " ", query);
 
             query = client.query().
                 insert("users", ["name", "email"], false).
                 sql();
-            test.equal("INSERT INTO `users`(`name`,`email`) ", query);
+            test.equal("INSERT INTO " + quoteName + "users" + quoteName + "(" + quoteName + "name" + quoteName + "," + quoteName + "email" + quoteName + ") ", query);
 
             query = client.query().
                 insert("users", ["name", "email"], ["john", "john.doe@email.com"]).
                 sql();
-            test.equal("INSERT INTO `users`(`name`,`email`) VALUES ('john','john.doe@email.com')", query);
+            test.equal("INSERT INTO " + quoteName + "users" + quoteName + "(" + quoteName + "name" + quoteName + "," + quoteName + "email" + quoteName + ") VALUES ('john','john.doe@email.com')", query);
 
             query = client.query().
                 insert("users", ["name", "email"], [["john", "john.doe@email.com"]]).
                 sql();
-            test.equal("INSERT INTO `users`(`name`,`email`) VALUES ('john','john.doe@email.com')", query);
+            test.equal("INSERT INTO " + quoteName + "users" + quoteName + "(" + quoteName + "name" + quoteName + "," + quoteName + "email" + quoteName + ") VALUES ('john','john.doe@email.com')", query);
 
             query = client.query().
                 insert("users", ["name", "email"], [["john", "john.doe@email.com"],["jane", "jane.doe@email.com"]]).
                 sql();
-            test.equal("INSERT INTO `users`(`name`,`email`) VALUES ('john','john.doe@email.com'),('jane','jane.doe@email.com')", query);
+            test.equal("INSERT INTO " + quoteName + "users" + quoteName + "(" + quoteName + "name" + quoteName + "," + quoteName + "email" + quoteName + ") VALUES ('john','john.doe@email.com'),('jane','jane.doe@email.com')", query);
 
             query = client.query().
                 insert("users", ["john", "john.doe@email.com"]).
                 sql();
-            test.equal("INSERT INTO `users` VALUES ('john','john.doe@email.com')", query);
+            test.equal("INSERT INTO " + quoteName + "users" + quoteName + " VALUES ('john','john.doe@email.com')", query);
 
             query = client.query().
                 insert("users", ["john", "john.doe@email.com", {value: 'NOW()', escape:false}]).
                 sql();
-            test.equal("INSERT INTO `users` VALUES ('john','john.doe@email.com',NOW())", query);
+            test.equal("INSERT INTO " + quoteName + "users" + quoteName + " VALUES ('john','john.doe@email.com',NOW())", query);
 
             query = client.query().
                 insert("users", [["john", "john.doe@email.com"],["jane", "jane.doe@email.com"]]).
                 sql();
-            test.equal("INSERT INTO `users` VALUES ('john','john.doe@email.com'),('jane','jane.doe@email.com')", query);
+            test.equal("INSERT INTO " + quoteName + "users" + quoteName + " VALUES ('john','john.doe@email.com'),('jane','jane.doe@email.com')", query);
 
             test.done();
         },
@@ -613,36 +618,36 @@ exports.get = function(createDbClient) {
             query = client.query().
                 update("users").
                 sql();
-            test.equal("UPDATE `users`", query);
+            test.equal("UPDATE " + quoteName + "users" + quoteName + "", query);
 
             query = client.query().
                 update({"u": "users"}).
                 sql();
-            test.equal("UPDATE `users` AS `u`", query);
+            test.equal("UPDATE " + quoteName + "users" + quoteName + " AS " + quoteName + "u" + quoteName + "", query);
 
             query = client.query().
                 update("users").
                 set({ "name": "John Doe" }).
                 sql();
-            test.equal("UPDATE `users` SET `name`='John Doe'", query);
+            test.equal("UPDATE " + quoteName + "users" + quoteName + " SET " + quoteName + "name" + quoteName + "='John Doe'", query);
 
             query = client.query().
                 update("users").
                 set({ "name": "John Doe", "email": "john.doe@email.com" }).
                 sql();
-            test.equal("UPDATE `users` SET `name`='John Doe',`email`='john.doe@email.com'", query);
+            test.equal("UPDATE " + quoteName + "users" + quoteName + " SET " + quoteName + "name" + quoteName + "='John Doe'," + quoteName + "email" + quoteName + "='john.doe@email.com'", query);
 
             query = client.query().
                 update("users").
                 set({ "name": "John Doe", "email": "john.doe@email.com", "age": 33 }).
                 sql();
-            test.equal("UPDATE `users` SET `name`='John Doe',`email`='john.doe@email.com',`age`=33", query);
+            test.equal("UPDATE " + quoteName + "users" + quoteName + " SET " + quoteName + "name" + quoteName + "='John Doe'," + quoteName + "email" + quoteName + "='john.doe@email.com'," + quoteName + "age" + quoteName + "=33", query);
 
             query = client.query().
                 update("users").
                 set({ "name": "John Doe", "email": "john.doe@email.com", "age": {"value": "real_age", "escape": false} }).
                 sql();
-            test.equal("UPDATE `users` SET `name`='John Doe',`email`='john.doe@email.com',`age`=real_age", query);
+            test.equal("UPDATE " + quoteName + "users" + quoteName + " SET " + quoteName + "name" + quoteName + "='John Doe'," + quoteName + "email" + quoteName + "='john.doe@email.com'," + quoteName + "age" + quoteName + "=real_age", query);
 
             test.done();
         },
@@ -657,7 +662,7 @@ exports.get = function(createDbClient) {
                 where("created > ?", [ new Date(2011,02,12,20,16,0) ]).
                 limit(10).
                 execute({ start: function (query) {
-                    test.equal("SELECT * FROM `users` INNER JOIN `profiles` AS `p` ON (p.id=users.profile_id) WHERE created > '2011-03-12 20:16:00' LIMIT 10", query);
+                    test.equal("SELECT * FROM " + quoteName + "users" + quoteName + " INNER JOIN " + quoteName + "profiles" + quoteName + " AS " + quoteName + "p" + quoteName + " ON (p.id=users.profile_id) WHERE created > '2011-03-12 20:16:00' LIMIT 10", query);
                     return false;
                 }});
 
@@ -669,7 +674,7 @@ exports.get = function(createDbClient) {
                     from("profiles")
                 ]).
                 execute({ start: function (query) {
-                    test.equal("SELECT * FROM `users` WHERE id IN (SELECT `id` FROM `profiles`)", query);
+                    test.equal("SELECT * FROM " + quoteName + "users" + quoteName + " WHERE id IN (SELECT " + quoteName + "id" + quoteName + " FROM " + quoteName + "profiles" + quoteName + ")", query);
                     return false;
                 }});
 
@@ -695,7 +700,7 @@ exports.get = function(createDbClient) {
                 from("users").
                 where("created > ?", [ new Date(2011,02,12,20,16,0) ]).
                 execute({ start: function (query) {
-                    test.equal("DELETE FROM `users` WHERE created > '2011-03-12 20:16:00'", query);
+                    test.equal("DELETE FROM " + quoteName + "users" + quoteName + " WHERE created > '2011-03-12 20:16:00'", query);
                     return false;
                 }});
 
@@ -705,7 +710,7 @@ exports.get = function(createDbClient) {
                 join({"table": "profiles", "alias": "p", "conditions": "p.id=users.profile_id"}).
                 where("created > ?", [ new Date(2011,02,12,20,16,0) ]).
                 execute({ start: function (query) {
-                    test.equal("DELETE `users` FROM `users` INNER JOIN `profiles` AS `p` ON (p.id=users.profile_id) WHERE created > '2011-03-12 20:16:00'", query);
+                    test.equal("DELETE " + quoteName + "users" + quoteName + " FROM " + quoteName + "users" + quoteName + " INNER JOIN " + quoteName + "profiles" + quoteName + " AS " + quoteName + "p" + quoteName + " ON (p.id=users.profile_id) WHERE created > '2011-03-12 20:16:00'", query);
                     return false;
                 }});
 
@@ -723,7 +728,7 @@ exports.get = function(createDbClient) {
                 where("created > ?", [ new Date(2011,02,12,20,16,0) ]).
                 limit(10).
                 execute({ start: function (query) {
-                    test.equal("INSERT INTO `profiles`(`name`,`age`,`created`) SELECT `name`,32 AS `value`,`created` FROM `users` INNER JOIN `profiles` AS `p` ON (p.id=users.profile_id) WHERE created > '2011-03-12 20:16:00' LIMIT 10", query);
+                    test.equal("INSERT INTO " + quoteName + "profiles" + quoteName + "(" + quoteName + "name" + quoteName + "," + quoteName + "age" + quoteName + "," + quoteName + "created" + quoteName + ") SELECT " + quoteName + "name" + quoteName + ",32 AS " + quoteName + "value" + quoteName + "," + quoteName + "created" + quoteName + " FROM " + quoteName + "users" + quoteName + " INNER JOIN " + quoteName + "profiles" + quoteName + " AS " + quoteName + "p" + quoteName + " ON (p.id=users.profile_id) WHERE created > '2011-03-12 20:16:00' LIMIT 10", query);
                     return false;
                 }});
 
@@ -740,7 +745,7 @@ exports.get = function(createDbClient) {
                 where("created > ?", [ new Date(2011,02,12,20,16,0) ]).
                 limit(10).
                 execute({ start: function (query) {
-                    test.equal("UPDATE `users` INNER JOIN `profiles` AS `p` ON (p.id=users.profile_id) SET `name`='New Name' WHERE created > '2011-03-12 20:16:00' LIMIT 10", query);
+                    test.equal("UPDATE " + quoteName + "users" + quoteName + " INNER JOIN " + quoteName + "profiles" + quoteName + " AS " + quoteName + "p" + quoteName + " ON (p.id=users.profile_id) SET " + quoteName + "name" + quoteName + "='New Name' WHERE created > '2011-03-12 20:16:00' LIMIT 10", query);
                     return false;
                 }});
 
