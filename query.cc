@@ -593,6 +593,10 @@ v8::Handle<v8::Value> node_db::Query::Execute(const v8::Arguments& args) {
     node_db::Query *query = node::ObjectWrap::Unwrap<node_db::Query>(args.This());
     assert(query);
 
+    if (!query->connection->isAlive(false)) {
+        THROW_EXCEPTION("Can't execute a query without being connected")
+    }
+
     if (args.Length() > 0) {
         v8::Handle<v8::Value> set = query->set(args);
         if (!set.IsEmpty()) {

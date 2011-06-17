@@ -3,7 +3,6 @@
 
 node_db::Connection::Connection()
     :quoteString('\''),
-    port(3306),
     alive(false),
     quoteName('`') {
     pthread_mutex_init(&(this->connectionLock), NULL);
