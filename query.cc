@@ -756,7 +756,7 @@ int node_db::Query::eioExecuteFinished(eio_req* eioRequest) {
 
                 eachArgv[0] = row;
                 eachArgv[1] = v8::Number::New(index);
-                eachArgv[2] = v8::Local<v8::Value>::New(iterator == end ? v8::True() : v8::False());
+                eachArgv[2] = v8::Local<v8::Value>::New((index == request->rows->size() - 1) ? v8::True() : v8::False());
 
                 request->query->Emit(syEach, 3, eachArgv);
 
