@@ -746,7 +746,8 @@ int node_db::Query::eioExecuteFinished(eio_req* eioRequest) {
         if (!isEmpty) {
             assert(request->rows);
 
-            v8::Local<v8::Array> rows = v8::Array::New(request->rows->size());
+            size_t totalRows = request->rows->size();
+            v8::Local<v8::Array> rows = v8::Array::New(totalRows);
 
             uint64_t index = 0;
             for (std::vector<row_t*>::iterator iterator = request->rows->begin(), end = request->rows->end(); iterator != end; ++iterator, index++) {
@@ -756,7 +757,7 @@ int node_db::Query::eioExecuteFinished(eio_req* eioRequest) {
 
                 eachArgv[0] = row;
                 eachArgv[1] = v8::Number::New(index);
-                eachArgv[2] = v8::Local<v8::Value>::New((index == request->rows->size() - 1) ? v8::True() : v8::False());
+                eachArgv[2] = v8::Local<v8::Value>::New((index == totalRows - 1) ? v8::True() : v8::False());
 
                 request->query->Emit(syEach, 3, eachArgv);
 
