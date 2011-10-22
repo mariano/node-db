@@ -1,10 +1,7 @@
 // Copyright 2011 Mariano Iglesias <mgiglesias@gmail.com>
 #include "./binding.h"
 
-v8::Persistent<v8::String> node_db::Binding::syReady;
-v8::Persistent<v8::String> node_db::Binding::syError;
-
-node_db::Binding::Binding(): node::EventEmitter(), connection(NULL), cbConnect(NULL) {
+node_db::Binding::Binding(): node_db::EventEmitter(), connection(NULL) {
 }
 
 node_db::Binding::~Binding() {
@@ -30,9 +27,6 @@ void node_db::Binding::Init(v8::Handle<v8::Object> target, v8::Persistent<v8::Fu
     NODE_ADD_PROTOTYPE_METHOD(constructorTemplate, "escape", Escape);
     NODE_ADD_PROTOTYPE_METHOD(constructorTemplate, "name", Name);
     NODE_ADD_PROTOTYPE_METHOD(constructorTemplate, "query", Query);
-
-    syReady = NODE_PERSISTENT_SYMBOL("ready");
-    syError = NODE_PERSISTENT_SYMBOL("error");
 }
 
 v8::Handle<v8::Value> node_db::Binding::Connect(const v8::Arguments& args) {
@@ -121,11 +115,11 @@ void node_db::Binding::connectFinished(connect_request_t* request) {
         argv[0] = v8::Local<v8::Value>::New(v8::Null());
         argv[1] = server;
 
-        request->binding->Emit(syReady, 1, &argv[1]);
+        request->binding->Emit("ready", 1, argv);
     } else {
         argv[0] = v8::String::New(request->error != NULL ? request->error : "(unknown error)");
 
-        request->binding->Emit(syError, 1, argv);
+        request->binding->Emit("error", 1, argv);
     }
 
     if (request->binding->cbConnect != NULL && !request->binding->cbConnect->IsEmpty()) {
@@ -141,13 +135,19 @@ void node_db::Binding::connectFinished(connect_request_t* request) {
     delete request;
 }
 
-int node_db::Binding::eioConnect(eio_req* eioRequest) {
+#if NODE_VERSION_AT_LEAST(0, 5, 0)
+void
+#else
+int
+#endif
+node_db::Binding::eioConnect(eio_req* eioRequest) {
     connect_request_t* request = static_cast<connect_request_t*>(eioRequest->data);
     assert(request);
 
     connect(request);
-
+#if !NODE_VERSION_AT_LEAST(0, 5, 0)
     return 0;
+#endif
 }
 
 int node_db::Binding::eioConnectFinished(eio_req* eioRequest) {

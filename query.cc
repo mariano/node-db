@@ -1,9 +1,6 @@
 // Copyright 2011 Mariano Iglesias <mgiglesias@gmail.com>
 #include "./query.h"
 
-v8::Persistent<v8::String> node_db::Query::sySuccess;
-v8::Persistent<v8::String> node_db::Query::syError;
-v8::Persistent<v8::String> node_db::Query::syEach;
 bool node_db::Query::gmtDeltaLoaded = false;
 int node_db::Query::gmtDelta;
 
@@ -23,13 +20,9 @@ void node_db::Query::Init(v8::Handle<v8::Object> target, v8::Persistent<v8::Func
     NODE_ADD_PROTOTYPE_METHOD(constructorTemplate, "delete", Delete);
     NODE_ADD_PROTOTYPE_METHOD(constructorTemplate, "sql", Sql);
     NODE_ADD_PROTOTYPE_METHOD(constructorTemplate, "execute", Execute);
-
-    sySuccess = NODE_PERSISTENT_SYMBOL("success");
-    syError = NODE_PERSISTENT_SYMBOL("error");
-    syEach = NODE_PERSISTENT_SYMBOL("each");
 }
 
-node_db::Query::Query(): node::EventEmitter(),
+node_db::Query::Query(): node_db::EventEmitter(),
     connection(NULL), async(true), cast(true), bufferText(false), cbStart(NULL), cbExecute(NULL), cbFinish(NULL) {
 }
 
@@ -659,7 +652,12 @@ v8::Handle<v8::Value> node_db::Query::Execute(const v8::Arguments& args) {
     return scope.Close(v8::Undefined());
 }
 
-int node_db::Query::eioExecute(eio_req* eioRequest) {
+#if NODE_VERSION_AT_LEAST(0, 5, 0)
+void
+#else
+int
+#endif
+node_db::Query::eioExecute(eio_req* eioRequest) {
     execute_request_t *request = static_cast<execute_request_t *>(eioRequest->data);
     assert(request);
 
@@ -728,8 +726,9 @@ int node_db::Query::eioExecute(eio_req* eioRequest) {
         Query::freeRequest(request, false);
         request->error = exception.what();
     }
-
+#if !NODE_VERSION_AT_LEAST(0, 5, 0)
     return 0;
+#endif
 }
 
 int node_db::Query::eioExecuteFinished(eio_req* eioRequest) {
@@ -759,7 +758,7 @@ int node_db::Query::eioExecuteFinished(eio_req* eioRequest) {
                 eachArgv[1] = v8::Number::New(index);
                 eachArgv[2] = v8::Local<v8::Value>::New((index == totalRows - 1) ? v8::True() : v8::False());
 
-                request->query->Emit(syEach, 3, eachArgv);
+                request->query->Emit("each", 3, eachArgv);
 
                 rows->Set(index, row);
             }
@@ -785,7 +784,7 @@ int node_db::Query::eioExecuteFinished(eio_req* eioRequest) {
             argv[1] = result;
         }
 
-        request->query->Emit(sySuccess, !isEmpty ? 2 : 1, &argv[1]);
+        request->query->Emit("success", !isEmpty ? 2 : 1, &argv[1]);
 
         if (request->query->cbExecute != NULL && !request->query->cbExecute->IsEmpty()) {
             v8::TryCatch tryCatch;
@@ -798,7 +797,7 @@ int node_db::Query::eioExecuteFinished(eio_req* eioRequest) {
         v8::Local<v8::Value> argv[1];
         argv[0] = v8::String::New(request->error != NULL ? request->error : "(unknown error)");
 
-        request->query->Emit(syError, 1, argv);
+        request->query->Emit("error", 1, argv);
 
         if (request->query->cbExecute != NULL && !request->query->cbExecute->IsEmpty()) {
             v8::TryCatch tryCatch;
@@ -872,7 +871,7 @@ void node_db::Query::executeAsync(execute_request_t* request) {
                     eachArgv[1] = v8::Number::New(index);
                     eachArgv[2] = v8::Local<v8::Value>::New(request->result->hasNext() ? v8::True() : v8::False());
 
-                    this->Emit(syEach, 3, eachArgv);
+                    this->Emit("each", 3, eachArgv);
 
                     rows->Set(index++, jsRow);
                 }
@@ -891,7 +890,7 @@ void node_db::Query::executeAsync(execute_request_t* request) {
                 argv[1] = result;
             }
 
-            this->Emit(sySuccess, !isEmpty ? 2 : 1, &argv[1]);
+            this->Emit("success", !isEmpty ? 2 : 1, &argv[1]);
 
             if (this->cbExecute != NULL && !this->cbExecute->IsEmpty()) {
                 v8::TryCatch tryCatch;
@@ -907,7 +906,7 @@ void node_db::Query::executeAsync(execute_request_t* request) {
         v8::Local<v8::Value> argv[1];
         argv[0] = v8::String::New(request->error != NULL ? exception.what() : "(unknown error)");
 
-        this->Emit(syError, 1, argv);
+        this->Emit("error", 1, argv);
 
         if (this->cbExecute != NULL && !this->cbExecute->IsEmpty()) {
             v8::TryCatch tryCatch;

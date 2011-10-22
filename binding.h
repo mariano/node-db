@@ -3,15 +3,16 @@
 #define BINDING_H_
 
 #include <node.h>
-#include <node_events.h>
+#include <node_version.h>
 #include <string>
 #include "./node_defs.h"
 #include "./connection.h"
+#include "./events.h"
 #include "./exception.h"
 #include "./query.h"
 
 namespace node_db {
-class Binding : public node::EventEmitter {
+class Binding : public EventEmitter {
     public:
         Connection* connection;
 
@@ -22,8 +23,6 @@ class Binding : public node::EventEmitter {
             const char* error;
         };
         v8::Persistent<v8::Function>* cbConnect;
-        static v8::Persistent<v8::String> syReady;
-        static v8::Persistent<v8::String> syError;
 
         Binding();
         ~Binding();
@@ -34,7 +33,13 @@ class Binding : public node::EventEmitter {
         static v8::Handle<v8::Value> Escape(const v8::Arguments& args);
         static v8::Handle<v8::Value> Name(const v8::Arguments& args);
         static v8::Handle<v8::Value> Query(const v8::Arguments& args);
-        static int eioConnect(eio_req* req);
+        static
+#if NODE_VERSION_AT_LEAST(0, 5, 0)
+        void
+#else
+        int
+#endif
+        eioConnect(eio_req* req);
         static void connect(connect_request_t* request);
         static void connectFinished(connect_request_t* request);
         static int eioConnectFinished(eio_req* eioRequest);

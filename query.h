@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <node.h>
 #include <node_buffer.h>
-#include <node_events.h>
+#include <node_version.h>
 #include <algorithm>
 #include <cctype>
 #include <string>
@@ -13,11 +13,12 @@
 #include <vector>
 #include "./node_defs.h"
 #include "./connection.h"
+#include "./events.h"
 #include "./exception.h"
 #include "./result.h"
 
 namespace node_db {
-class Query : public node::EventEmitter {
+class Query : public EventEmitter {
     public:
         static void Init(v8::Handle<v8::Object> target, v8::Persistent<v8::FunctionTemplate> constructorTemplate);
         void setConnection(Connection* connection);
@@ -46,9 +47,6 @@ class Query : public node::EventEmitter {
         v8::Persistent<v8::Function>* cbStart;
         v8::Persistent<v8::Function>* cbExecute;
         v8::Persistent<v8::Function>* cbFinish;
-        static v8::Persistent<v8::String> syError;
-        static v8::Persistent<v8::String> sySuccess;
-        static v8::Persistent<v8::String> syEach;
 
         Query();
         ~Query();
@@ -67,7 +65,13 @@ class Query : public node::EventEmitter {
         static v8::Handle<v8::Value> Delete(const v8::Arguments& args);
         static v8::Handle<v8::Value> Sql(const v8::Arguments& args);
         static v8::Handle<v8::Value> Execute(const v8::Arguments& args);
-        static int eioExecute(eio_req* eioRequest);
+        static
+#if NODE_VERSION_AT_LEAST(0, 5, 0)
+        void
+#else
+        int
+#endif
+        eioExecute(eio_req* eioRequest);
         static int eioExecuteFinished(eio_req* eioRequest);
         void executeAsync(execute_request_t* request);
         static void freeRequest(execute_request_t* request, bool freeAll = true);

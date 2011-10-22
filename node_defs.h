@@ -5,7 +5,6 @@
 #include <node.h>
 
 #define NODE_CONSTANT(constant) v8::Integer::New(constant)
-#define NODE_PERSISTENT_SYMBOL(s) v8::Persistent<v8::String>::New(v8::String::NewSymbol(s))
 
 #define NODE_ADD_PROTOTYPE_METHOD(templ, name, callback)                  \
 do {                                                                      \
