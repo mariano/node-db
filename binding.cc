@@ -1,7 +1,7 @@
 // Copyright 2011 Mariano Iglesias <mgiglesias@gmail.com>
 #include "./binding.h"
 
-node_db::Binding::Binding(): node_db::EventEmitter(), connection(NULL) {
+node_db::Binding::Binding(): node_db::EventEmitter(), connection(NULL), cbConnect(NULL) {
 }
 
 node_db::Binding::~Binding() {
