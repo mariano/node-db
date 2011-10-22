@@ -115,7 +115,7 @@ void node_db::Binding::connectFinished(connect_request_t* request) {
         argv[0] = v8::Local<v8::Value>::New(v8::Null());
         argv[1] = server;
 
-        request->binding->Emit("ready", 1, argv[1]);
+        request->binding->Emit("ready", 1, &argv[1]);
     } else {
         argv[0] = v8::String::New(request->error != NULL ? request->error : "(unknown error)");
 
