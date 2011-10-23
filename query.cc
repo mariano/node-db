@@ -586,10 +586,6 @@ v8::Handle<v8::Value> node_db::Query::Execute(const v8::Arguments& args) {
     node_db::Query *query = node::ObjectWrap::Unwrap<node_db::Query>(args.This());
     assert(query);
 
-    if (!query->connection->isAlive(false)) {
-        THROW_EXCEPTION("Can't execute a query without being connected")
-    }
-
     if (args.Length() > 0) {
         v8::Handle<v8::Value> set = query->set(args);
         if (!set.IsEmpty()) {
@@ -623,6 +619,10 @@ v8::Handle<v8::Value> node_db::Query::Execute(const v8::Arguments& args) {
                 sql = *modifiedQuery;
             }
         }
+    }
+
+    if (!query->connection->isAlive(false)) {
+        THROW_EXCEPTION("Can't execute a query without being connected")
     }
 
     execute_request_t *request = new execute_request_t();
@@ -1103,8 +1103,10 @@ std::string node_db::Query::fieldName(v8::Local<v8::Value> value) const throw(no
                 v8::Local<v8::Object> currentObject = currentValue->ToObject();
                 v8::Local<v8::String> escapeKey = v8::String::New("escape");
                 v8::Local<v8::String> valueKey = v8::String::New("value");
+                v8::Local<v8::String> precisionKey = v8::String::New("precision");
                 v8::Local<v8::Value> optionValue;
                 bool escape = false;
+                int precision = -1;
 
                 if (!currentObject->Has(valueKey)) {
                     throw node_db::Exception("The \"value\" option for the select field object must be specified");
@@ -1118,11 +1120,19 @@ std::string node_db::Query::fieldName(v8::Local<v8::Value> value) const throw(no
                     escape = optionValue->IsTrue();
                 }
 
+                if (currentObject->Has(precisionKey)) {
+                    optionValue = currentObject->Get(precisionKey);
+                    if (!optionValue->IsNumber() || optionValue->IntegerValue() < 0) {
+                        throw new node_db::Exception("Specify a number equal or greater than 0 for precision");
+                    }
+                    precision = optionValue->IntegerValue();
+                }
+
                 if (j > 0) {
                     buffer += ',';
                 }
 
-                buffer += this->value(currentObject->Get(valueKey), false, escape);
+                buffer += this->value(currentObject->Get(valueKey), false, escape, precision);
             } else {
                 if (j > 0) {
                     buffer += ',';
@@ -1375,7 +1385,7 @@ std::string node_db::Query::parseQuery() const throw(node_db::Exception&) {
     return parsed;
 }
 
-std::string node_db::Query::value(v8::Local<v8::Value> value, bool inArray, bool escape) const throw(node_db::Exception&) {
+std::string node_db::Query::value(v8::Local<v8::Value> value, bool inArray, bool escape, int precision) const throw(node_db::Exception&) {
     std::ostringstream currentStream;
 
     if (value->IsNull()) {
@@ -1404,7 +1414,19 @@ std::string node_db::Query::value(v8::Local<v8::Value> value, bool inArray, bool
         v8::Local<v8::Object> object = value->ToObject();
         v8::Handle<v8::String> valueKey = v8::String::New("value");
         v8::Handle<v8::String> escapeKey = v8::String::New("escape");
+
         if (object->Has(valueKey)) {
+            v8::Handle<v8::String> precisionKey = v8::String::New("precision");
+            int precision = -1;
+
+            if (object->Has(precisionKey)) {
+                v8::Local<v8::Value> optionValue = object->Get(precisionKey);
+                if (!optionValue->IsNumber() || optionValue->IntegerValue() < 0) {
+                    throw new node_db::Exception("Specify a number equal or greater than 0 for precision");
+                }
+                precision = optionValue->IntegerValue();
+            }
+
             bool innerEscape = true;
             if (object->Has(escapeKey)) {
                 v8::Local<v8::Value> escapeValue = object->Get(escapeKey);
@@ -1413,7 +1435,7 @@ std::string node_db::Query::value(v8::Local<v8::Value> value, bool inArray, bool
                 }
                 innerEscape = escapeValue->IsTrue();
             }
-            currentStream << this->value(object->Get(valueKey), false, innerEscape);
+            currentStream << this->value(object->Get(valueKey), false, innerEscape, precision);
         } else {
             v8::Handle<v8::String> sqlKey = v8::String::New("sql");
             if (!object->Has(sqlKey) || !object->Get(sqlKey)->IsFunction()) {
@@ -1432,8 +1454,15 @@ std::string node_db::Query::value(v8::Local<v8::Value> value, bool inArray, bool
         }
     } else if (value->IsBoolean()) {
         currentStream << (value->IsTrue() ? '1' : '0');
+    } else if (value->IsUint32() || value->IsInt32() || value->NumberValue() == value->IntegerValue()) {
+        currentStream << value->IntegerValue();
     } else if (value->IsNumber()) {
-        currentStream << std::fixed << value->NumberValue();
+        if (precision == -1) {
+            v8::String::Utf8Value currentString(value->ToString());
+            currentStream << *currentString;
+        } else {
+            currentStream << std::fixed << std::setprecision(precision) << value->NumberValue();
+        }
     } else if (value->IsString()) {
         v8::String::Utf8Value currentString(value->ToString());
         std::string string = *currentString;

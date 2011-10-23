@@ -8,6 +8,7 @@
 #include <node_version.h>
 #include <algorithm>
 #include <cctype>
+#include <iomanip>
 #include <string>
 #include <sstream>
 #include <vector>
@@ -82,7 +83,7 @@ class Query : public EventEmitter {
         virtual std::string parseQuery() const throw(Exception&);
         virtual std::vector<std::string::size_type> placeholders(std::string* parsed) const throw(Exception&);
         virtual Result* execute() const throw(Exception&);
-        std::string value(v8::Local<v8::Value> value, bool inArray = false, bool escape = true) const throw(Exception&);
+        std::string value(v8::Local<v8::Value> value, bool inArray = false, bool escape = true, int precision = -1) const throw(Exception&);
 
 
     private:

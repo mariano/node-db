@@ -17,8 +17,11 @@ exports.get = function(createDbClient, quoteName) {
 
     exports["Client"] = testCase({
         "setUp": function(callback) {
-            this.client = createDbClient();
-            callback();
+            var self = this;
+            createDbClient(function(client) {
+                self.client = client;
+                callback();
+            });
         },
         "escape()": function(test) {
             var client = this.client;
@@ -49,8 +52,11 @@ exports.get = function(createDbClient, quoteName) {
 
     exports["Query"] = testCase({
         "setUp": function(callback) {
-            this.client = createDbClient();
-            callback();
+            var self = this;
+            createDbClient(function(client) {
+                self.client = client;
+                callback();
+            });
         },
         "select markers": function(test) {
             var client = this.client;
@@ -194,7 +200,7 @@ exports.get = function(createDbClient, quoteName) {
         },
         "insert markers": function(test) {
             var client = this.client;
-            test.expect(4);
+            test.expect(5);
 
             var created = new Date();
             client.query(
@@ -248,6 +254,17 @@ exports.get = function(createDbClient, quoteName) {
                         "('jane','Jane O\\'Hara',29,'1980-09-18 20:15:00',0)," +
                         "('mark','Mark Doe',28,'1981-06-15 16:02:30',1)"
                     , query);
+                    return false;
+                }}
+            ).execute();
+
+            client.query(
+                "INSERT INTO numbers(n1, n2, n3, n4) VALUES ?", 
+                [
+                    [ 10, 3.1415627, 70686626206955, { value: 3.1415627, precision: 2 } ],
+                ],
+                { start: function (query) {
+                    test.equal("INSERT INTO numbers(n1, n2, n3, n4) VALUES (10,3.1415627,70686626206955,3.14)", query);
                     return false;
                 }}
             ).execute();
