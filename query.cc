@@ -1433,7 +1433,7 @@ std::string node_db::Query::value(v8::Local<v8::Value> value, bool inArray, bool
     } else if (value->IsBoolean()) {
         currentStream << (value->IsTrue() ? '1' : '0');
     } else if (value->IsNumber()) {
-        currentStream << value->ToNumber()->Value();
+        currentStream << std::fixed << value->NumberValue();
     } else if (value->IsString()) {
         v8::String::Utf8Value currentString(value->ToString());
         std::string string = *currentString;
