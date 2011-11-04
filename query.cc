@@ -1229,7 +1229,7 @@ v8::Local<v8::Object> node_db::Query::row(node_db::Result* result, row_t* curren
                         value = v8::String::New(currentValue, currentLength)->ToInteger();
                         break;
                     case node_db::Result::Column::NUMBER:
-                        value = v8::Number::New(::atof(currentValue));
+                        value = v8::String::New(currentValue, currentLength)->ToNumber();
                         break;
                     case node_db::Result::Column::TIME:
                         {
