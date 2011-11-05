@@ -1454,7 +1454,7 @@ std::string node_db::Query::value(v8::Local<v8::Value> value, bool inArray, bool
         }
     } else if (value->IsBoolean()) {
         currentStream << (value->IsTrue() ? '1' : '0');
-    } else if (value->IsUint32() || value->IsInt32() || value->NumberValue() == value->IntegerValue()) {
+    } else if (value->IsUint32() || value->IsInt32() || (value->IsNumber() && value->NumberValue() == value->IntegerValue())) {
         currentStream << value->IntegerValue();
     } else if (value->IsNumber()) {
         if (precision == -1) {
