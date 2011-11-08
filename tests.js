@@ -200,7 +200,7 @@ exports.get = function(createDbClient, quoteName) {
         },
         "insert markers": function(test) {
             var client = this.client;
-            test.expect(5);
+            test.expect(6);
 
             var created = new Date();
             client.query(
@@ -268,6 +268,13 @@ exports.get = function(createDbClient, quoteName) {
                     return false;
                 }}
             ).execute();
+
+            client.query({
+                start: function(query) {
+                    test.equal("INSERT INTO test (`test`) VALUES ('test value');", query);
+                    return false;
+                }
+            }).execute("INSERT INTO test (`test`) VALUES (?);", ['test value'], function() {});
 
             test.done();
         },

@@ -974,6 +974,7 @@ v8::Handle<v8::Value> node_db::Query::set(const v8::Arguments& args) {
         optionsIndex = 3;
     } else if (args.Length() == 3) {
         ARG_CHECK_STRING(0, query);
+        queryIndex = 0;
         if (args[2]->IsFunction()) {
             ARG_CHECK_FUNCTION(2, callback);
             if (args[1]->IsArray()) {
@@ -988,7 +989,6 @@ v8::Handle<v8::Value> node_db::Query::set(const v8::Arguments& args) {
             ARG_CHECK_STRING(0, query);
             ARG_CHECK_ARRAY(1, values);
             ARG_CHECK_OBJECT(2, options);
-            queryIndex = 0;
             valuesIndex = 1;
             optionsIndex = 2;
         }
