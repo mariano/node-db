@@ -33,8 +33,8 @@ class Query : public EventEmitter {
         struct execute_request_t {
             v8::Persistent<v8::Object> context;
             Query* query;
-            Result *result;
-            const char* error;
+            Result* result;
+            std::string* error;
             uint16_t columnCount;
             bool buffered;
             std::vector<row_t*>* rows;

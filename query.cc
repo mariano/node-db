@@ -724,7 +724,7 @@ node_db::Query::eioExecute(eio_req* eioRequest) {
     } catch(const node_db::Exception& exception) {
         request->query->connection->unlock();
         Query::freeRequest(request, false);
-        request->error = exception.what();
+        request->error = new std::string(exception.what());
     }
 #if !NODE_VERSION_AT_LEAST(0, 5, 0)
     return 0;
@@ -795,7 +795,7 @@ int node_db::Query::eioExecuteFinished(eio_req* eioRequest) {
         }
     } else {
         v8::Local<v8::Value> argv[1];
-        argv[0] = v8::String::New(request->error != NULL ? request->error : "(unknown error)");
+        argv[0] = v8::String::New(request->error != NULL ? request->error->c_str() : "(unknown error)");
 
         request->query->Emit("error", 1, argv);
 
@@ -904,7 +904,7 @@ void node_db::Query::executeAsync(execute_request_t* request) {
         this->connection->unlock();
 
         v8::Local<v8::Value> argv[1];
-        argv[0] = v8::String::New(request->error != NULL ? exception.what() : "(unknown error)");
+        argv[0] = v8::String::New(exception.what());
 
         this->Emit("error", 1, argv);
 
@@ -943,6 +943,10 @@ void node_db::Query::freeRequest(execute_request_t* request, bool freeAll) {
         }
 
         delete request->rows;
+    }
+
+    if (request->error != NULL) {
+        delete request->error;
     }
 
     if (freeAll) {
