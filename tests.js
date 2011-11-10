@@ -431,7 +431,7 @@ exports.get = function(createDbClient, quoteName) {
         },
         "join()": function(test) {
             var client = this.client, query = "";
-            test.expect(8);
+            test.expect(9);
      
             test.throws(
                 function () {
@@ -493,6 +493,22 @@ exports.get = function(createDbClient, quoteName) {
                 "conditions": "t2.a=t1.a AND t3.b=t1.b AND t4.c=t1.c"
             }).sql();
             test.equal(" LEFT JOIN (t2 CROSS JOIN t3 CROSS JOIN t4) ON (t2.a=t1.a AND t3.b=t1.b AND t4.c=t1.c)", query);
+
+            query = client.query().join(
+                { 
+                    "table": "profiles",
+                    "alias": "p",
+                    "conditions": "p.id = u.profile_id AND approved = ? AND created >= ?"
+                },
+                [ 1, new Date(2011, 2, 12, 19, 49, 0) ]
+            ).join({ 
+                "table": "contacts",
+                "alias": "c",
+                "conditions": "c.id = p.contact_id"
+            }).execute({ start: function (query) {
+                test.equal(" INNER JOIN " + quoteName + "profiles" + quoteName + " AS " + quoteName + "p" + quoteName + " ON (p.id = u.profile_id AND approved = 1 AND created >= '2011-03-12 19:49:00') INNER JOIN " + quoteName + "contacts" + quoteName + " AS " + quoteName + "c" + quoteName + " ON (c.id = p.contact_id)", query);
+                return false;
+            }});
 
             test.done();
         },
