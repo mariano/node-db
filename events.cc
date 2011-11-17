@@ -10,7 +10,7 @@ node_db::EventEmitter::EventEmitter() : node::ObjectWrap() {
 
 void node_db::EventEmitter::Init() {
 #if !NODE_VERSION_AT_LEAST(0, 5, 0)
-    syEmit = NODE_PSYMBOL("emit");
+    syEmit = NODE_PERSISTENT_SYMBOL("emit");
 #endif
 }
 
