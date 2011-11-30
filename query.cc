@@ -1,4 +1,5 @@
 // Copyright 2011 Mariano Iglesias <mgiglesias@gmail.com>
+// Copyright 2011 Georg Wicherski <gw@oxff.net>
 #include "./query.h"
 
 bool node_db::Query::gmtDeltaLoaded = false;
@@ -1382,6 +1383,11 @@ std::string node_db::Query::parseQuery() const throw(node_db::Exception&) {
     uint32_t index = 0, delta = 0;
     for (std::vector<std::string::size_type>::iterator iterator = positions.begin(), end = positions.end(); iterator != end; ++iterator, index++) {
         std::string value = this->value(*(this->values[index]));
+
+	if(!value.length()) {
+		throw node_db::Exception("Internal error, attempting to replace with zero length value");
+	}
+
         parsed.replace(*iterator + delta, 1, value);
         delta += (value.length() - 1);
     }
@@ -1479,6 +1485,10 @@ std::string node_db::Query::value(v8::Local<v8::Value> value, bool inArray, bool
         } else {
             currentStream << string;
         }
+    } else {	
+        v8::String::Utf8Value currentString(value->ToString());
+        std::string string = *currentString;
+        throw node_db::Exception("Unknown type for to convert to SQL, converting `" + string + "'");
     }
 
     return currentStream.str();
