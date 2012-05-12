@@ -644,8 +644,12 @@ v8::Handle<v8::Value> node_db::Query::Execute(const v8::Arguments& args) {
 
     if (query->async) {
         request->query->Ref();
-        eio_custom(eioExecute, EIO_PRI_DEFAULT, eioExecuteFinished, request);
-        ev_ref(EV_DEFAULT_UC);
+
+        uv_work_t* req = new uv_work_t();
+        req->data = request;
+        uv_queue_work(uv_default_loop(), req, uvExecute, uvExecuteFinished);
+
+        uv_ref(uv_default_loop());
     } else {
         request->query->executeAsync(request);
     }
@@ -653,13 +657,8 @@ v8::Handle<v8::Value> node_db::Query::Execute(const v8::Arguments& args) {
     return scope.Close(v8::Undefined());
 }
 
-#if NODE_VERSION_AT_LEAST(0, 5, 0)
-void
-#else
-int
-#endif
-node_db::Query::eioExecute(eio_req* eioRequest) {
-    execute_request_t *request = static_cast<execute_request_t *>(eioRequest->data);
+void node_db::Query::uvExecute(uv_work_t* uvRequest) {
+    execute_request_t *request = static_cast<execute_request_t *>(uvRequest->data);
     assert(request);
 
     try {
@@ -727,15 +726,12 @@ node_db::Query::eioExecute(eio_req* eioRequest) {
         Query::freeRequest(request, false);
         request->error = new std::string(exception.what());
     }
-#if !NODE_VERSION_AT_LEAST(0, 5, 0)
-    return 0;
-#endif
 }
 
-int node_db::Query::eioExecuteFinished(eio_req* eioRequest) {
+void node_db::Query::uvExecuteFinished(uv_work_t* uvRequest) {
     v8::HandleScope scope;
 
-    execute_request_t *request = static_cast<execute_request_t *>(eioRequest->data);
+    execute_request_t *request = static_cast<execute_request_t *>(uvRequest->data);
     assert(request);
 
     if (request->error == NULL && request->result != NULL) {
@@ -817,12 +813,10 @@ int node_db::Query::eioExecuteFinished(eio_req* eioRequest) {
         }
     }
 
-    ev_unref(EV_DEFAULT_UC);
+    uv_unref(uv_default_loop());
     request->query->Unref();
 
     Query::freeRequest(request);
-
-    return 0;
 }
 
 void node_db::Query::executeAsync(execute_request_t* request) {
@@ -1485,7 +1479,7 @@ std::string node_db::Query::value(v8::Local<v8::Value> value, bool inArray, bool
         } else {
             currentStream << string;
         }
-    } else {	
+    } else {
         v8::String::Utf8Value currentString(value->ToString());
         std::string string = *currentString;
         throw node_db::Exception("Unknown type for to convert to SQL, converting `" + string + "'");
