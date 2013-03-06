@@ -2,7 +2,9 @@
 #ifndef BINDING_H_
 #define BINDING_H_
 
+#include <v8.h>
 #include <node.h>
+#include <node_buffer.h>
 #include <node_version.h>
 #include <string>
 #include "./node_defs.h"
@@ -33,6 +35,7 @@ class Binding : public EventEmitter {
         static v8::Handle<v8::Value> Escape(const v8::Arguments& args);
         static v8::Handle<v8::Value> Name(const v8::Arguments& args);
         static v8::Handle<v8::Value> Query(const v8::Arguments& args);
+	static uv_async_t g_async;
         static void uvConnect(uv_work_t* uvRequest);
         static void uvConnectFinished(uv_work_t* uvRequest);
         static void connect(connect_request_t* request);
