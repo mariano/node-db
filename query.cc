@@ -398,7 +398,7 @@ v8::Handle<v8::Value> node_db::Query::Insert(const v8::Arguments& args) {
     uint32_t argsLength = args.Length();
 
     int fieldsIndex = -1, valuesIndex = -1;
-
+  
     if (argsLength > 0) {
         ARG_CHECK_STRING(0, table);
 
@@ -455,7 +455,9 @@ v8::Handle<v8::Value> node_db::Query::Insert(const v8::Arguments& args) {
                     }
 
                     try {
-                        query->sql << query->fieldName(fields->Get(i));
+		      //query->sql << query->fieldName(fields->Get(i));
+		      v8::String::Utf8Value fieldName(fields->Get(i));
+		      query->sql << *fieldName;
                     } catch(const node_db::Exception& exception) {
                         THROW_EXCEPTION(exception.what())
                     }
