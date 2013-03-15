@@ -735,7 +735,7 @@ void node_db::Query::uvExecute(uv_work_t* uvRequest) {
     }
 }
 
-void node_db::Query::uvExecuteFinished(uv_work_t* uvRequest) {
+void node_db::Query::uvExecuteFinished(uv_work_t* uvRequest, int status) {
     v8::HandleScope scope;
 
     execute_request_t *request = static_cast<execute_request_t *>(uvRequest->data);

@@ -107,7 +107,7 @@ v8::Handle<v8::Value> node_db::Binding::Connect(const v8::Arguments& args) {
 void node_db::Binding::connect(connect_request_t* request) {
     try {
         request->binding->connection->open();
-    } catch(const node_db::Exception& exception) {
+    } catch(node_db::Exception const& exception) {
         request->error = exception.what();
     }
 }
@@ -153,7 +153,7 @@ void node_db::Binding::uvConnect(uv_work_t* uvRequest) {
     connect(request);
 }
 
-void node_db::Binding::uvConnectFinished(uv_work_t* uvRequest) {
+void node_db::Binding::uvConnectFinished(uv_work_t* uvRequest, int status) {
     v8::HandleScope scope;
 
     connect_request_t* request = static_cast<connect_request_t*>(uvRequest->data);
@@ -204,7 +204,7 @@ v8::Handle<v8::Value> node_db::Binding::Escape(const v8::Arguments& args) {
         v8::String::Utf8Value string(args[0]->ToString());
         std::string unescaped(*string);
         escaped = binding->connection->escape(unescaped);
-    } catch(const node_db::Exception& exception) {
+    } catch(node_db::Exception const& exception) {
         THROW_EXCEPTION(exception.what())
     }
 
@@ -225,7 +225,7 @@ v8::Handle<v8::Value> node_db::Binding::Name(const v8::Arguments& args) {
         v8::String::Utf8Value string(args[0]->ToString());
         std::string unescaped(*string);
         escaped << binding->connection->escapeName(unescaped);
-    } catch(const node_db::Exception& exception) {
+    } catch(node_db::Exception const& exception) {
         THROW_EXCEPTION(exception.what())
     }
 
