@@ -47,6 +47,26 @@ exports.get = function(createDbClient, quoteName) {
             test.equal(quoteName + "table" + quoteName + ".*", client.name("table.*"));
             
             test.done();
+        },
+        "multiple results": function(test) {
+            var client = this.client;
+            test.expect(1);
+
+            client.query(
+                'CREATE PROCEDURE multiple_result () ' +
+                'BEGIN ' +
+                '    SELECT 0; ' +
+                '    SELECT 1; ' +
+                'END'
+            ).execute(function () {
+                client.query('call multiple_result()').execute(function (error1, rows, cols) {
+                    client.query('call multiple_result()').execute(function (error2, rows, cols) {
+                        test.equal(null, error2);
+                        client.query('DROP PROCEDURE IF EXISTS multiple_result').execute();
+                        test.done();
+                    });
+                });
+            });
         }
     });
 
