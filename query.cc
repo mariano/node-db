@@ -649,7 +649,7 @@ v8::Handle<v8::Value> node_db::Query::Execute(const v8::Arguments& args) {
 
         uv_work_t* req = new uv_work_t();
         req->data = request;
-        uv_queue_work(uv_default_loop(), req, uvExecute, uvExecuteFinished);
+        uv_queue_work(uv_default_loop(), req, uvExecute, (uv_after_work_cb)uvExecuteFinished);
 
 #if NODE_VERSION_AT_LEAST(0, 7, 9)
         uv_ref((uv_handle_t *)&g_async);
