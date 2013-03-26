@@ -16,6 +16,7 @@ class Result {
                     STRING,
                     TEXT,
                     INT,
+                    BIGINT,
                     NUMBER,
                     DATE,
                     TIME,
