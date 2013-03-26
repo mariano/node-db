@@ -14,7 +14,6 @@ void node_db::Binding::Init(v8::Handle<v8::Object> target, v8::Persistent<v8::Fu
     NODE_ADD_CONSTANT(constructorTemplate, COLUMN_TYPE_STRING, node_db::Result::Column::STRING);
     NODE_ADD_CONSTANT(constructorTemplate, COLUMN_TYPE_BOOL, node_db::Result::Column::BOOL);
     NODE_ADD_CONSTANT(constructorTemplate, COLUMN_TYPE_INT, node_db::Result::Column::INT);
-    NODE_ADD_CONSTANT(constructorTemplate, COLUMN_TYPE_BIGINT, node_db::Result::Column::BIGINT);
     NODE_ADD_CONSTANT(constructorTemplate, COLUMN_TYPE_NUMBER, node_db::Result::Column::NUMBER);
     NODE_ADD_CONSTANT(constructorTemplate, COLUMN_TYPE_DATE, node_db::Result::Column::DATE);
     NODE_ADD_CONSTANT(constructorTemplate, COLUMN_TYPE_TIME, node_db::Result::Column::TIME);

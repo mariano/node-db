@@ -5,13 +5,6 @@
 bool node_db::Query::gmtDeltaLoaded = false;
 int node_db::Query::gmtDelta;
 
-v8::Local<v8::String> v8StringFromUInt64(uint64_t num, std::ostringstream &reusableStream) {
-    reusableStream.clear();
-    reusableStream.seekp(0);
-    reusableStream << num << std::ends;
-    return v8::String::New(reusableStream.str().c_str());
-}
-
 void node_db::Query::Init(v8::Handle<v8::Object> target, v8::Persistent<v8::FunctionTemplate> constructorTemplate) {
     NODE_ADD_PROTOTYPE_METHOD(constructorTemplate, "select", Select);
     NODE_ADD_PROTOTYPE_METHOD(constructorTemplate, "from", From);
@@ -753,14 +746,13 @@ void node_db::Query::uvExecuteFinished(uv_work_t* uvRequest) {
             v8::Local<v8::Array> rows = v8::Array::New(totalRows);
 
             uint64_t index = 0;
-            std::ostringstream reusableStream;
             for (std::vector<row_t*>::iterator iterator = request->rows->begin(), end = request->rows->end(); iterator != end; ++iterator, index++) {
                 row_t* currentRow = *iterator;
                 v8::Local<v8::Object> row = request->query->row(request->result, currentRow);
                 v8::Local<v8::Value> eachArgv[3];
 
                 eachArgv[0] = row;
-                eachArgv[1] = v8StringFromUInt64(index, reusableStream);
+                eachArgv[1] = v8::Number::New(index);
                 eachArgv[2] = v8::Local<v8::Value>::New((index == totalRows - 1) ? v8::True() : v8::False());
 
                 request->query->Emit("each", 3, eachArgv);
@@ -783,10 +775,9 @@ void node_db::Query::uvExecuteFinished(uv_work_t* uvRequest) {
             argv[2] = columns;
         } else {
             v8::Local<v8::Object> result = v8::Object::New();
-            std::ostringstream reusableStream;
-            result->Set(v8::String::New("id"), v8StringFromUInt64(request->result->insertId(), reusableStream));
-            result->Set(v8::String::New("affected"), v8StringFromUInt64(request->result->affectedCount(), reusableStream));
-            result->Set(v8::String::New("warning"), v8StringFromUInt64(request->result->warningCount(), reusableStream));
+            result->Set(v8::String::New("id"), v8::Number::New(request->result->insertId()));
+            result->Set(v8::String::New("affected"), v8::Number::New(request->result->affectedCount()));
+            result->Set(v8::String::New("warning"), v8::Number::New(request->result->warningCount()));
             argv[1] = result;
         }
 
@@ -863,7 +854,6 @@ void node_db::Query::executeAsync(execute_request_t* request) {
 
                 row_t row;
                 uint64_t index = 0;
-                std::ostringstream reusableStream;
 
                 while (request->result->hasNext()) {
                     row.columnLengths = (unsigned long*) request->result->columnLengths();
@@ -873,7 +863,7 @@ void node_db::Query::executeAsync(execute_request_t* request) {
                     v8::Local<v8::Value> eachArgv[3];
 
                     eachArgv[0] = jsRow;
-                    eachArgv[1] = v8StringFromUInt64(index, reusableStream);
+                    eachArgv[1] = v8::Number::New(index);
                     eachArgv[2] = v8::Local<v8::Value>::New(request->result->hasNext() ? v8::True() : v8::False());
 
                     this->Emit("each", 3, eachArgv);
@@ -889,10 +879,9 @@ void node_db::Query::executeAsync(execute_request_t* request) {
                 argv[2] = columns;
             } else {
                 v8::Local<v8::Object> result = v8::Object::New();
-                std::ostringstream reusableStream;
-                result->Set(v8::String::New("id"), v8StringFromUInt64(request->result->insertId(), reusableStream));
-                result->Set(v8::String::New("affected"), v8StringFromUInt64(request->result->affectedCount(), reusableStream));
-                result->Set(v8::String::New("warning"), v8StringFromUInt64(request->result->warningCount(), reusableStream));
+                result->Set(v8::String::New("id"), v8::Number::New(request->result->insertId()));
+                result->Set(v8::String::New("affected"), v8::Number::New(request->result->affectedCount()));
+                result->Set(v8::String::New("warning"), v8::Number::New(request->result->warningCount()));
                 argv[1] = result;
             }
 
@@ -1315,10 +1304,9 @@ v8::Local<v8::Object> node_db::Query::row(node_db::Result* result, row_t* curren
                             std::istringstream stream(currentValue);
                             std::string item;
                             uint64_t index = 0;
-                            std::ostringstream reusableStream;
                             while (std::getline(stream, item, ',')) {
                                 if (!item.empty()) {
-                                    values->Set(v8StringFromUInt64(index++, reusableStream), v8::String::New(item.c_str()));
+                                    values->Set(v8::Integer::New(index++), v8::String::New(item.c_str()));
                                 }
                             }
                             value = values;
