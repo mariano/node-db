@@ -2,6 +2,7 @@
 #ifndef QUERY_H_
 #define QUERY_H_
 
+#include <v8.h>
 #include <stdlib.h>
 #include <node.h>
 #include <node_buffer.h>
@@ -66,8 +67,9 @@ class Query : public EventEmitter {
         static v8::Handle<v8::Value> Delete(const v8::Arguments& args);
         static v8::Handle<v8::Value> Sql(const v8::Arguments& args);
         static v8::Handle<v8::Value> Execute(const v8::Arguments& args);
+        static uv_async_t g_async;
         static void uvExecute(uv_work_t* uvRequest);
-        static void uvExecuteFinished(uv_work_t* uvRequest);
+        static void uvExecuteFinished(uv_work_t* uvRequest, int status);
         void executeAsync(execute_request_t* request);
         static void freeRequest(execute_request_t* request, bool freeAll = true);
         std::string fieldName(v8::Local<v8::Value> value) const throw(Exception&);

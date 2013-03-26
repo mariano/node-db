@@ -5,6 +5,8 @@
 bool node_db::Query::gmtDeltaLoaded = false;
 int node_db::Query::gmtDelta;
 
+uv_async_t node_db::Query::g_async;
+
 void node_db::Query::Init(v8::Handle<v8::Object> target, v8::Persistent<v8::FunctionTemplate> constructorTemplate) {
     NODE_ADD_PROTOTYPE_METHOD(constructorTemplate, "select", Select);
     NODE_ADD_PROTOTYPE_METHOD(constructorTemplate, "from", From);
@@ -647,9 +649,14 @@ v8::Handle<v8::Value> node_db::Query::Execute(const v8::Arguments& args) {
 
         uv_work_t* req = new uv_work_t();
         req->data = request;
-        uv_queue_work(uv_default_loop(), req, uvExecute, uvExecuteFinished);
+        uv_queue_work(uv_default_loop(), req, uvExecute, (uv_after_work_cb)uvExecuteFinished);
 
+#if NODE_VERSION_AT_LEAST(0, 7, 9)
+        uv_ref((uv_handle_t *)&g_async);
+#else
         uv_ref(uv_default_loop());
+#endif
+
     } else {
         request->query->executeAsync(request);
     }
@@ -728,7 +735,7 @@ void node_db::Query::uvExecute(uv_work_t* uvRequest) {
     }
 }
 
-void node_db::Query::uvExecuteFinished(uv_work_t* uvRequest) {
+void node_db::Query::uvExecuteFinished(uv_work_t* uvRequest, int status) {
     v8::HandleScope scope;
 
     execute_request_t *request = static_cast<execute_request_t *>(uvRequest->data);
@@ -813,7 +820,12 @@ void node_db::Query::uvExecuteFinished(uv_work_t* uvRequest) {
         }
     }
 
+#if NODE_VERSION_AT_LEAST(0, 7, 9)
+    uv_unref((uv_handle_t *)&g_async);
+#else
     uv_unref(uv_default_loop());
+#endif
+
     request->query->Unref();
 
     Query::freeRequest(request);
